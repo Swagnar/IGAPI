@@ -1,0 +1,12 @@
+{
+    "name": "swagnar/igapi",
+    "description": "Instagram stories generator via Meta API",
+    "autoload": {
+        "psr-4": {
+            "Swagnar\\Igapi\\": "src/"
+        }
+    },
+    "require": {
+        "vlucas/phpdotenv": "^5.6"
+    }
+}
