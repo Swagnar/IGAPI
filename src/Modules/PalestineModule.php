@@ -7,17 +7,13 @@ use Swagnar\Igapi\Contracts\StoryPayload;
 use Swagnar\Igapi\Http\JsonClient;
 
 use Swagnar\Igapi\Helper\Console;
+use Swagnar\Igapi\Helper\GdImageHelper;
 
 use DateTimeImmutable;
-use RuntimeException;
 use GdImage;
 
 class PalestineModule implements StoryModule
 {
-
-    private const FONT      = ROOT_DIR . '/Inter-Regular.ttf';
-    private const FONT_BOLD = ROOT_DIR . '/Inter-Bold.ttf';
-
     public function __construct(
         private readonly JsonClient $http,
     ){
@@ -58,8 +54,6 @@ class PalestineModule implements StoryModule
         }
         Console::info("Sprawdzam dostępność fontów...");
 
-        if(!file_exists($this::FONT)) throw new RuntimeException("Brak fontu: $this::FONT");
-        if(!file_exists($this::FONT_BOLD)) throw new RuntimeException("Brak fontu: $this::FONT_BOLD");
 
         Console::info("Fonty dostępne, tworzę obraz...");
         $img = imagecreatetruecolor(WIDTH, HEIGHT);
@@ -74,31 +68,31 @@ class PalestineModule implements StoryModule
             $this->drawDots($img, $latestTotal, WIDTH, HEIGHT);
         }
  
-        $this->centerText($img, 'GAZA',                           150,  72, '#ffffff', $this::FONT_BOLD);
-        $this->centerText($img, $date,                            300,  40, '#cfcfcf', $this::FONT);
-        $this->centerText($img, 'Brak raportu dla tego dnia',     700,  48, '#ffffff', $this::FONT_BOLD);
+        GdImageHelper::centerText($img, 'GAZA',                           150,  72, '#ffffff', FONT_BOLD);
+        GdImageHelper::centerText($img, $date,                            300,  40, '#cfcfcf', FONT);
+        GdImageHelper::centerText($img, 'Brak raportu dla tego dnia',     700,  48, '#ffffff', FONT_BOLD);
     
         if ($latest !== null) {
             $latestDate = $latest['report_date'] ?? '—';
-            $this->centerText($img, 'Ostatni raport: ' . $latestDate,         960,  34, '#888888', $this::FONT);
-            $this->centerText($img, 'Łącznie zabici',                        1060,  38, '#cfcfcf', $this::FONT);
-            $this->centerText($img, $this->fmt($latestTotal),                       1160,  72, '#ffffff', $this::FONT_BOLD);
+            GdImageHelper::centerText($img, 'Ostatni raport: ' . $latestDate,         960,  34, '#888888', FONT);
+            GdImageHelper::centerText($img, 'Łącznie zabici',                        1060,  38, '#cfcfcf', FONT);
+            GdImageHelper::centerText($img, $this->fmt($latestTotal),                       1160,  72, '#ffffff', FONT_BOLD);
     
             if (!empty($latest['ext_killed_children_cum'])) {
-                $this->centerText($img, 'w tym dzieci',                      1270,  34, '#cfcfcf', $this::FONT);
-                $this->centerText($img, $this->fmt($latest['ext_killed_children_cum']), 1360, 60, '#ffd166', $this::FONT_BOLD);
+                GdImageHelper::centerText($img, 'w tym dzieci',                      1270,  34, '#cfcfcf', FONT);
+                GdImageHelper::centerText($img, $this->fmt($latest['ext_killed_children_cum']), 1360, 60, '#ffd166', FONT_BOLD);
             }
             if (!empty($latest['ext_killed_women_cum'])) {
-                $this->centerText($img, 'w tym kobiety',                     1450,  34, '#cfcfcf', $this::FONT);
-                $this->centerText($img, $this->fmt($latest['ext_killed_women_cum']), 1540, 60, '#ffd166', $this::FONT_BOLD);
+                GdImageHelper::centerText($img, 'w tym kobiety',                     1450,  34, '#cfcfcf', FONT);
+                GdImageHelper::centerText($img, $this->fmt($latest['ext_killed_women_cum']), 1540, 60, '#ffd166', FONT_BOLD);
             }
             if (!empty($latest['ext_press_killed_cum'])) {
-                $this->centerText($img, 'dziennikarze',                      1630,  34, '#cfcfcf', $this::FONT);
-                $this->centerText($img, $this->fmt($latest['ext_press_killed_cum']), 1720, 60, '#ffd166', $this::FONT_BOLD);
+                GdImageHelper::centerText($img, 'dziennikarze',                      1630,  34, '#cfcfcf', FONT);
+                GdImageHelper::centerText($img, $this->fmt($latest['ext_press_killed_cum']), 1720, 60, '#ffd166', FONT_BOLD);
             }
         }
     
-        $this->centerText($img, 'Źródło: Tech for Palestine', 1820, 28, '#aaaaaa', $this::FONT);
+        GdImageHelper::centerText($img, 'Źródło: Tech for Palestine', 1820, 28, '#aaaaaa', FONT);
     
         $filename = 'gaza-story-' . $date . '.png';
         $path     = PUBLIC_DIR . '/' . $filename;
@@ -116,8 +110,6 @@ class PalestineModule implements StoryModule
         }
         Console::info("Sprawdzam dostępność fontów...");
 
-        if(!file_exists($this::FONT)) throw new RuntimeException("Brak fontu: $this::FONT");
-        if(!file_exists($this::FONT_BOLD)) throw new RuntimeException("Brak fontu: $this::FONT_BOLD");
 
         Console::info("Fonty dostępne, tworzę obraz...");
         $img = imagecreatetruecolor(WIDTH, HEIGHT);
@@ -154,35 +146,35 @@ class PalestineModule implements StoryModule
 
 
         // ── Nagłówek ──────────────────────────────────────────────────────────────
-        $this->centerText($img, 'GAZA',             150,  72, '#ffffff', $this::FONT_BOLD);
-        $this->centerText($img, $reportDate,    300,  40, '#cfcfcf', $this::FONT);
+        GdImageHelper::centerText($img, 'GAZA',             150,  72, '#ffffff', FONT_BOLD);
+        GdImageHelper::centerText($img, $reportDate,    300,  40, '#cfcfcf', FONT);
     
         // ── Zabici tego dnia ──────────────────────────────────────────────────────
-        $this->centerText($img, 'Zabici tego dnia',        440,  38, '#cfcfcf', $this::FONT);
-        $this->centerText($img, $this->fmt($killedToday), 580, 130, '#ffffff', $this::FONT_BOLD);
+        GdImageHelper::centerText($img, 'Zabici tego dnia',        440,  38, '#cfcfcf', FONT);
+        GdImageHelper::centerText($img, $this->fmt($killedToday), 580, 130, '#ffffff', FONT_BOLD);
     
         // ── Łącznie zabici ────────────────────────────────────────────────────────
-        $this->centerText($img, 'Łącznie zabici',          720,  38, '#cfcfcf', $this::FONT);
-        $this->centerText($img, $this->fmt($killedTotal), 840,  72, '#ffffff', $this::FONT_BOLD);
+        GdImageHelper::centerText($img, 'Łącznie zabici',          720,  38, '#cfcfcf', FONT);
+        GdImageHelper::centerText($img, $this->fmt($killedTotal), 840,  72, '#ffffff', FONT_BOLD);
     
         // ── Zmiana vs poprzedni raport ────────────────────────────────────────────
         $diffPrefix = ($diff >= 0) ? '+' : '';
         $diffColor  = ($diff > 0)  ? '#ff6b6b' : '#aaaaaa';
-        $this->centerText($img, 'Zmiana vs poprzedni raport (' . $prevReportDate . ')', 930, 30, '#888888', $this::FONT);
-        $this->centerText($img, $diffPrefix . $this->fmt($diff), 1020, 64, $diffColor, $this::FONT_BOLD);
+        GdImageHelper::centerText($img, 'Zmiana vs poprzedni raport (' . $prevReportDate . ')', 930, 30, '#888888', FONT);
+        GdImageHelper::centerText($img, $diffPrefix . $this->fmt($diff), 1020, 64, $diffColor, FONT_BOLD);
     
         // ── Dzieci / kobiety / dziennikarze ───────────────────────────────────────
-        $this->centerText($img, 'w tym dzieci',            1150, 34, '#cfcfcf', $this::FONT);
-        $this->centerText($img, $this->fmt($childrenKilled), 1250, 64, '#ffd166', $this::FONT_BOLD);
+        GdImageHelper::centerText($img, 'w tym dzieci',            1150, 34, '#cfcfcf', FONT);
+        GdImageHelper::centerText($img, $this->fmt($childrenKilled), 1250, 64, '#ffd166', FONT_BOLD);
     
-        $this->centerText($img, 'w tym kobiety',           1340, 34, '#cfcfcf', $this::FONT);
-        $this->centerText($img, $this->fmt($womenKilled), 1430, 64, '#ffd166', $this::FONT_BOLD);
+        GdImageHelper::centerText($img, 'w tym kobiety',           1340, 34, '#cfcfcf', FONT);
+        GdImageHelper::centerText($img, $this->fmt($womenKilled), 1430, 64, '#ffd166', FONT_BOLD);
     
-        $this->centerText($img, 'dziennikarze',            1520, 34, '#cfcfcf', $this::FONT);
-        $this->centerText($img, $this->fmt($pressKilled), 1610, 64, '#ffd166', $this::FONT_BOLD);
+        GdImageHelper::centerText($img, 'dziennikarze',            1520, 34, '#cfcfcf', FONT);
+        GdImageHelper::centerText($img, $this->fmt($pressKilled), 1610, 64, '#ffd166', FONT_BOLD);
     
         // ── Stopka ────────────────────────────────────────────────────────────────
-        $this->centerText($img, 'Źródło: Tech for Palestine', 1750, 28, '#aaaaaa', $this::FONT);
+        GdImageHelper::centerText($img, 'Źródło: Tech for Palestine', 1750, 28, '#aaaaaa', FONT);
 
 
         Console::info("Zapisuję obraz...");
@@ -205,15 +197,6 @@ class PalestineModule implements StoryModule
             }
         }
         return $result;
-    }
-
-    private function centerText(GdImage $img, string $text, int $y, int $size, string $colorHex, string $font) {
-        $rgb = sscanf($colorHex, "#%02x%02x%02x");
-        $col = imagecolorallocate($img, $rgb[0], $rgb[1], $rgb[2]);
-        $box = imagettfbbox($size, 0, $font, $text);
-        $width = $box[2] - $box[0];
-        $x = (1080 - $width) / 2;
-        imagettftext($img, $size, 0, (int)$x, $y, $col, $font, $text);
     }
 
     private function findByDate(array $data, string $date): ?array {

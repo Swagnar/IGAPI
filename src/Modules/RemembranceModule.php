@@ -10,8 +10,6 @@ class RemembranceModule implements StoryModule
 {
     public function __construct(
         private readonly JsonClient $http,
-        private readonly string     $public_dir,
-        private readonly string     $public_url,
     ){
         Console::module("Moduł RemembranceModule zainicjalizowany");
     }

@@ -16,8 +16,6 @@ class NewsModule implements StoryModule
 {
     public function __construct(
         private readonly JsonClient $http,
-        private readonly string     $public_dir,
-        private readonly string     $public_url,
     ){
         Console::module("Moduł NewsModule zainicjalizowany");
     }
