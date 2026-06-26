@@ -14,9 +14,6 @@ use RuntimeException;
 use GdImage;
 
 class WeatherModule implements StoryModule {
-    private const WEATHER_MAP_DIR = ROOT_DIR . '/weather-maps';
-    private const WEATHER_MAP_URL = '/weather-maps';
-
     private const CITIES = [
         'Warszawa'  => ['lat' => 52.23, 'lon' => 21.01],
         'Kraków'    => ['lat' => 50.06, 'lon' => 19.94],
@@ -99,8 +96,7 @@ class WeatherModule implements StoryModule {
         imagealphablending($img, true);
         imagesavealpha($img, true);
 
-        $black = imagecolorallocate($img, 0, 0, 0);
-        imagefill($img, 0, 0, $black);
+        GdImageHelper::drawBackground($img);
 
         $lonMin = 14.1; $lonMax = 24.2;
         $latMin = 49.0; $latMax = 54.9;
@@ -108,10 +104,11 @@ class WeatherModule implements StoryModule {
         $mapWidth  = 760;
         $mapHeight = 760;
         $offsetX   = 140;
-        $offsetY   = 80;
+        $offsetY   = 580;
 
-        GdImageHelper::centerText($img, 'POLSKA', 150, 72, '#ffffff', FONT);
-
+        GdImageHelper::centerText($img, 'POLSKA',  150, HEADER_SIZE, '#ffffff', FONT_BOLD);
+        GdImageHelper::centerText($img, 'o 12:00', 200, 24,          '#ffffff', FONT);
+        
         Console::info("Generuję mapę pogody dla Polski...");
         $project = function(float $lat, float $lon) use ($lonMin, $lonMax, $latMin, $latMax, $mapWidth, $mapHeight, $offsetX, $offsetY): array {
             $x = ($lon - $lonMin) / ($lonMax - $lonMin) * $mapWidth + $offsetX;
@@ -136,14 +133,12 @@ class WeatherModule implements StoryModule {
         // Wypełnienie obszaru Polski białym kolorem w masce
         imagefilledpolygon($mask, $borderPx, count($borderPx) / 2, $maskWhite);
 
-
         $points = [];
         foreach ($cities as $name => $city) {
             if (!isset($city['lat'], $city['lon'], $city['temp']) || $city['temp'] === null) {
                 continue;
             }
 
-            Console::debug("Uruchamiam closure dla $name");
             [$x, $y] = $project((float)$city['lat'], (float)$city['lon']);
 
             $points[] = [
@@ -184,10 +179,9 @@ class WeatherModule implements StoryModule {
             $dot = imagecolorallocate($img, 255, 255, 255);
             imagefilledellipse($img, $p['x'], $p['y'], 8, 8, $dot);
 
-            $labelColor = $this->gdHex($img, $this->tempLabelColor($p['temp']));
             $text = sprintf('%s %.0f°C', $p['name'], $p['temp']);
 
-            imagettftext($img, 22, 0, $p['x'] + 12, $p['y'] - 10, $labelColor, FONT, $text);
+            GdImageHelper::drawText($img, $text, $p['x'] + 12, $p['y'] - 10, 22, $this->tempLabelColor($p['temp']), FONT);
         }
 
         $avgColor = $this->gdHex($img, $this->tempLabelColor($avgTemp));
@@ -200,18 +194,19 @@ class WeatherModule implements StoryModule {
         imagettftext($img, 36, 0, 80, 1840, $avgColor, FONT, $mood);
         imagettftext($img, 22, 0, 80, 1890, $gray, FONT, 'Źródło: Open-Meteo');
 
-        if (!is_dir($this::WEATHER_MAP_DIR)) {
-            mkdir($this::WEATHER_MAP_DIR, 0775, true);
+        if (!is_dir(PUBLIC_DIR)) {
+            mkdir(PUBLIC_DIR, 0775, true);
         }
 
-        Console::info("Zapisuję obraz...");
         $filename = 'weather-map-' . date('Ymd-His') . '.png';
-        $path = rtrim($this::WEATHER_MAP_DIR, '/') . '/' . $filename;
-        $url = rtrim($this::WEATHER_MAP_URL, '/') . '/' . $filename;
+        $path = rtrim(PUBLIC_DIR, '/') . '/' . $filename;
+        $url = rtrim(PUBLIC_URL, '/') . '/' . $filename;
 
         imagepng($img, $path, 6);
         imagedestroy($img);
         imagedestroy($mask);
+
+        Console::success("Zapisano obraz: " . $path);
 
         return [$path, $url];
     }
@@ -293,9 +288,8 @@ class WeatherModule implements StoryModule {
     private function randomWeatherMood(float $avg): string
     {
         $moods = match (true) {
-            $avg >= 35 => ['Lampa jak chuj', 'Lampa jak skurwysyn'],
-            $avg >= 30 => ['Mogło być gorzej', 'Pszeniczne wejdzie jak złoto'],
-            $avg >= 25 => ['Ciepło i przyjemnie', 'Idealne na grilla', 'Polskie lato w pełnej krasie'],
+            $avg >= 30 => ['Lampa jak chuj', 'Lampa jak skurwysyn'],
+            $avg >= 25 => ['Prawie lampa', 'Damy radę'],
             $avg >= 20 => ['Idealnie', 'Entropia osiągnięta', 'Zostań tak na zawsze'],
             $avg >= 15 => ['Ni to dobrze ni to źle', 'Tak se bym powiedział'],
             $avg >= 10 => ['Lekka pizgawica', 'Jeszcze jakoś ujdzie', 'Piździ jak w Kieleckim'],

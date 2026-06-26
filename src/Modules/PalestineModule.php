@@ -11,6 +11,7 @@ use Swagnar\Igapi\Helper\GdImageHelper;
 
 use DateTimeImmutable;
 use GdImage;
+use RuntimeException;
 
 class PalestineModule implements StoryModule
 {
@@ -60,17 +61,16 @@ class PalestineModule implements StoryModule
         imagealphablending($img, true);
         imagesavealpha($img, true);
 
-        $bg = imagecolorallocate($img, 0, 0, 0);
-        imagefill($img, 0, 0, $bg);
+        GdImageHelper::drawBackground($img);
 
         $latestTotal = $latest ? (int)($latest['killed_cum'] ?? 0) : null;
         if ($latestTotal > 0) {
             $this->drawDots($img, $latestTotal, WIDTH, HEIGHT);
         }
  
-        GdImageHelper::centerText($img, 'GAZA',                           150,  72, '#ffffff', FONT_BOLD);
-        GdImageHelper::centerText($img, $date,                            300,  40, '#cfcfcf', FONT);
-        GdImageHelper::centerText($img, 'Brak raportu dla tego dnia',     700,  48, '#ffffff', FONT_BOLD);
+        GdImageHelper::centerText($img, 'GAZA',                           150,  HEADER_SIZE, '#ffffff', FONT_BOLD);
+        GdImageHelper::centerText($img, $date,                            300,  40         , '#cfcfcf', FONT);
+        GdImageHelper::centerText($img, 'Brak raportu dla tego dnia',     700,  48         , '#ffffff', FONT_BOLD);
     
         if ($latest !== null) {
             $latestDate = $latest['report_date'] ?? '—';
@@ -116,8 +116,7 @@ class PalestineModule implements StoryModule
         imagealphablending($img, true);
         imagesavealpha($img, true);
 
-        $bg = imagecolorallocate($img, 0, 0, 0);
-        imagefill($img, 0, 0, $bg);
+        GdImageHelper::drawBackground($img);
 
         // Łączna liczba zabitych
         $total = (int)($report['killed_cum'] ?? 0);
@@ -177,14 +176,17 @@ class PalestineModule implements StoryModule
         GdImageHelper::centerText($img, 'Źródło: Tech for Palestine', 1750, 28, '#aaaaaa', FONT);
 
 
-        Console::info("Zapisuję obraz...");
         $filename = 'gaza-story-' . $report['report_date'] . '.png';
         $path = PUBLIC_DIR . '/' . $filename;
         $url = PUBLIC_URL . '/' . $filename;
 
         imagepng($img, $path, 9);
         imagedestroy($img);
-        Console::info("Zapisano obraz");
+        if(!is_file($path)) {
+            throw new RuntimeException("Nie udało się zapisać obrazu w " . $path);
+        }
+
+        Console::success("Zapisano obraz: " . $path);
         return [$path,$url];
     }
 

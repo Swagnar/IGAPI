@@ -4,11 +4,14 @@ require_once __DIR__ . '/vendor/autoload.php';
 $dotenv = Dotenv\Dotenv::createImmutable(__DIR__);
 $dotenv->load();
 
-define('ROOT_DIR', __DIR__);
 define('WIDTH', 1080);
 define('HEIGHT', 1920);
+define('HEADER_SIZE', 72);
+define('OFFSET_Y', 150);
+
 define('FONT', __DIR__ . '/Inter-Regular.ttf');
 define('FONT_BOLD', __DIR__ . '/Inter-Bold.ttf');
+
 
 
 // Ustawienie na true pozwala na testowanie lokalnych plików i wyświetlanie obrazków bezpośrednio z dysku
@@ -26,12 +29,14 @@ use Swagnar\Igapi\Helper\Console;
 
 use Swagnar\Igapi\Contracts\StoryRunner;
 
-const PUBLIC_DIR       = __DIR__ . '/ig-stories';
+define('ROOT_DIR', __DIR__);
 
-if(DEBUG) {
-    define('PUBLIC_URL', PUBLIC_DIR);
+if (DEBUG) {
+    define('PUBLIC_DIR', __DIR__ . '/ig-stories');
+    define('PUBLIC_URL', __DIR__ . '/ig-stories');
     Console::debug("DEBUG MODE: Pamiętaj aby zmienić przed wdrożeniem na produkcję.");
 } else {
+    define('PUBLIC_DIR', ROOT_DIR . '/../swagnar.dev/ig-stories');
     define('PUBLIC_URL', 'https://swagnar.dev/ig-stories');
 }
 
@@ -62,8 +67,8 @@ $publisher = new InstagramPublisher(
 // Rejestracja modułów
 $modules = [
     new PalestineModule($http),
+    new NewsModule($http),
     new WeatherModule($http),
-    // new NewsModule($http),
     // new RemembranceModule($http),
 ];
 
@@ -73,5 +78,4 @@ try {
     (new StoryRunner($modules, $publisher))->run();
 } catch (\Throwable $e) {
     Console::error("Błąd w runnerze: " . $e->getMessage());
-    exit(1);
 }

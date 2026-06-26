@@ -24,14 +24,20 @@ class StoryRunner
                 $payload = $module->run();
                 Console::module("Moduł " . $module->getLabel() . " zakończył działanie.");
             } catch (\Throwable $e) {
-                Console::error("Błąd w module " . $module->getLabel() . ": " . $e->getMessage());
-                throw new RuntimeException("Błąd w module " . $module->getLabel() . ": " . $e->getMessage(), previous: $e);
+                Console::error("Błąd w module " . $module->getLabel() . ": " . $e->getMessage() . '\n' . $e->getTraceAsString());
+                continue;
             }
             foreach($payload->slides as $slide) {
                 if(!DEBUG) {
-                    Console::module("Moduł " . $module->getLabel() . " rozpoczyna publikowanie.");
-                    $this->publisher->publish($slide['url']);
-                    Console::module("Moduł " . $module->getLabel() . " zakończył publikowanie.");
+                    try {
+                        Console::module("Moduł " . $module->getLabel() . " rozpoczyna publikowanie.");
+                        $this->publisher->publish($slide['url']);
+                        Console::module("Moduł " . $module->getLabel() . " zakończył publikowanie.");
+                        sleep(10);
+                    } catch (\Throwable $e) {
+                        Console::error("Błąd publikowania " . $module->getLabel() . ": " . $e->getMessage());
+                        break;
+                    }
                 }
             }
         }
