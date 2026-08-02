@@ -38,7 +38,7 @@ Narzędzie CLI do automatycznego generowania i publikowania Story na Instagramie
 ## Instalacja
 
 ```bash
-git clone https://github.com/twoj-user/igapi.git
+git clone https://github.com/Swagnar/IGAPI.git
 cd igapi
 composer install
 cp .env.example .env
