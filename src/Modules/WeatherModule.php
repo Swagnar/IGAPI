@@ -23,7 +23,7 @@ class WeatherModule implements StoryModule {
         'Łódź'      => ['lat' => 51.77, 'lon' => 19.46],
         'Szczecin'  => ['lat' => 53.43, 'lon' => 14.55],
         'Lublin'    => ['lat' => 51.25, 'lon' => 22.57],
-        'Nysa'      => ['lat' => 50.28, 'lon' => 17.20],
+        'Nysa'      => ['lat' => 50.48, 'lon' => 17.20],
     ];
 
     public function __construct(
@@ -75,16 +75,16 @@ class WeatherModule implements StoryModule {
             throw new RuntimeException("Brak danych pogodowych dla jakiegokolwiek miasta");
         }
 
-        $temps   = array_filter(array_column($cities, 'temp'), fn($t) => $t !== null);
-        $avgTemp = round(array_sum($temps) / count($temps), 1);
+        $temps = array_filter(array_column($cities, 'temp'), fn($t) => $t !== null);
+        $medianTemp = $this->median($temps);
 
-        Console::info("Średnia temperatura: {$avgTemp}°C");
+        Console::info("Mediana temperatury: {$medianTemp}°C");
 
-        [$path, $url] = $this->generateWeatherMap($cities, $avgTemp);
+        [$path, $url] = $this->generateWeatherMap($cities, $medianTemp);
         return StoryPayload::single($path, $url, 'Pogoda');
     }
 
-    private function generateWeatherMap(array $cities, float $avgTemp): array
+    private function generateWeatherMap(array $cities, float $medianTemp): array
     {
         $borderGeo = require ROOT_DIR . '/geo/poland-border.php';
 
@@ -184,13 +184,13 @@ class WeatherModule implements StoryModule {
             GdImageHelper::drawText($img, $text, $p['x'] + 12, $p['y'] - 10, 22, $this->tempLabelColor($p['temp']), FONT);
         }
 
-        $avgColor = $this->gdHex($img, $this->tempLabelColor($avgTemp));
+        $avgColor = $this->gdHex($img, $this->tempLabelColor($medianTemp));
         $white = imagecolorallocate($img, 255, 255, 255);
         $gray = imagecolorallocate($img, 136, 136, 136);
 
-        $mood = $this->randomWeatherMood($avgTemp);
+        $mood = $this->randomWeatherMood($medianTemp);
 
-        imagettftext($img, 48, 0, 80, 1780, $white, FONT, sprintf('Średnia: %.1f°C', $avgTemp));
+        imagettftext($img, 48, 0, 80, 1780, $white, FONT, sprintf('Mediana: %.1f°C', $medianTemp));
         imagettftext($img, 36, 0, 80, 1840, $avgColor, FONT, $mood);
         imagettftext($img, 22, 0, 80, 1890, $gray, FONT, 'Źródło: Open-Meteo');
 
@@ -310,5 +310,25 @@ class WeatherModule implements StoryModule {
             hexdec(substr($hex, 2, 2)),
             hexdec(substr($hex, 4, 2))
         );
+    }
+
+    private function median(array $values): ?float
+    {
+        $values = array_values($values); // reindeksacja, na wypadek dziur po array_filter
+        $count  = count($values);
+
+        if ($count === 0) return null;
+
+        sort($values);
+
+        $middle = (int)floor($count / 2);
+
+        if ($count % 2 === 0) {
+            // parzysta liczba elementów — średnia z dwóch środkowych
+            return round(($values[$middle - 1] + $values[$middle]) / 2, 1);
+        }
+
+        // nieparzysta liczba elementów — środkowy element
+        return round($values[$middle], 1);
     }
 }

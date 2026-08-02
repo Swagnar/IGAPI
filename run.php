@@ -15,7 +15,7 @@ define('FONT_BOLD', __DIR__ . '/Inter-Bold.ttf');
 
 
 // Ustawienie na true pozwala na testowanie lokalnych plików i wyświetlanie obrazków bezpośrednio z dysku
-define('DEBUG', false);
+define('DEBUG', true);
 
 use Swagnar\Igapi\Http\JsonClient;
 use Swagnar\Igapi\Http\InstagramPublisher;
@@ -24,6 +24,7 @@ use Swagnar\Igapi\Modules\PalestineModule;
 use Swagnar\Igapi\Modules\NewsModule;
 use Swagnar\Igapi\Modules\RemembranceModule;
 use Swagnar\Igapi\Modules\WeatherModule;
+use Swagnar\Igapi\Modules\MarsModule;
 
 use Swagnar\Igapi\Helper\Console;
 
@@ -43,7 +44,7 @@ if (DEBUG) {
 if(!file_exists(FONT)) throw new RuntimeException("Brak fontu: " . FONT);
 if(!file_exists(FONT_BOLD)) throw new RuntimeException("Brak fontu: " . FONT_BOLD);
 
-Console::boot("
+Console::write('', Console::WHITE,"
   ██╗ ██████╗      █████╗ ██████╗ ██╗
   ██║██╔════╝     ██╔══██╗██╔══██╗██║
   ██║██║  ███╗    ███████║██████╔╝██║
@@ -66,9 +67,10 @@ $publisher = new InstagramPublisher(
 
 // Rejestracja modułów
 $modules = [
-    new PalestineModule($http),
+    // new PalestineModule($http),
     new NewsModule($http),
-    new WeatherModule($http),
+    // new MarsModule($http),
+    // new WeatherModule($http),
     // new RemembranceModule($http),
 ];
 

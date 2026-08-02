@@ -137,7 +137,7 @@ class PalestineModule implements StoryModule
         // Dane z raportu
         $reportDate = $report['report_date'] ?? 'N/A';
         $prevReportDate = $previous['report_date'] ?? 'N/A';
-        $killedTotal = $report['killed'] ?? 0;
+        // $killedTotal = $report['killed'] ?? 0;
 
         $womenKilled = $report['ext_killed_women_cum'] ?? 0;
         $childrenKilled = $report['ext_killed_children_cum'] ?? 0;
@@ -154,7 +154,7 @@ class PalestineModule implements StoryModule
     
         // ── Łącznie zabici ────────────────────────────────────────────────────────
         GdImageHelper::centerText($img, 'Łącznie zabici',          720,  38, '#cfcfcf', FONT);
-        GdImageHelper::centerText($img, $this->fmt($killedTotal), 840,  72, '#ffffff', FONT_BOLD);
+        GdImageHelper::centerText($img, $this->fmt($total), 840,  72, '#ffffff', FONT_BOLD);
     
         // ── Zmiana vs poprzedni raport ────────────────────────────────────────────
         $diffPrefix = ($diff >= 0) ? '+' : '';
@@ -176,12 +176,10 @@ class PalestineModule implements StoryModule
         GdImageHelper::centerText($img, 'Źródło: Tech for Palestine', 1750, 28, '#aaaaaa', FONT);
 
 
-        $filename = 'gaza-story-' . $report['report_date'] . '.png';
-        $path = PUBLIC_DIR . '/' . $filename;
-        $url = PUBLIC_URL . '/' . $filename;
+        [$path, $url] = GdImageHelper::saveImage($img, $this->getLabel(), PUBLIC_DIR, PUBLIC_URL);
 
-        imagepng($img, $path, 9);
-        imagedestroy($img);
+        // imagepng($img, $path, 9);
+        // imagedestroy($img);
         if(!is_file($path)) {
             throw new RuntimeException("Nie udało się zapisać obrazu w " . $path);
         }

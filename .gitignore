@@ -3,3 +3,6 @@ ig-stories/
 vendor/
 source.php
 debug/
+src/old/
+btc_data_off.txt
+*.tar

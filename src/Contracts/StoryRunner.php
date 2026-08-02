@@ -6,6 +6,7 @@ use Swagnar\Igapi\Contracts\StoryModule;
 use Swagnar\Igapi\Helper\Console;
 
 use RuntimeException;
+use Bounds;
 
 class StoryRunner
 {

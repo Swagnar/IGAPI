@@ -28,8 +28,14 @@ class InstagramPublisher
         );
         $containerId = $container['data']['id'] ?? throw new RuntimeException("Nie udało się utworzyć kontenera dla obrazu: " . json_encode($container));
 
-        Console::debug("Utworzono kontener: $containerId, próbuję publikować...");
+        Console::debug("Utworzono kontener: {$containerId}, czekam na gotowość...");
 
+        if (!$this->waitUntilContainerReady($containerId)) {
+            Console::error("Rezygnuję z publikacji — kontener nie jest gotowy.");
+            return;
+        }
+
+        Console::debug("Kontener gotowy, próbuję publikować...");
         $result = $this->graph_post(
             self::BASE_URL . "/{$this->igUserId}/media_publish",
             [
@@ -63,4 +69,27 @@ class InstagramPublisher
         }
         return $data;
     }
+    private function waitUntilContainerReady(string $containerId, int $maxAttempts = 10, int $delaySeconds = 3): bool
+{
+    for ($i = 0; $i < $maxAttempts; $i++) {
+        $response = $this->http->get(self::BASE_URL . "{$containerId}?fields=status_code&access_token={$this->accessToken}");
+        $status = $response['status_code'] ?? null;   // bez ['data']
+
+        Console::debug("Status kontenera {$containerId}: {$status} (próba " . ($i + 1) . "/{$maxAttempts})");
+
+        if ($status === 'FINISHED') {
+            return true;
+        }
+
+        if ($status === 'ERROR') {
+            Console::error("Kontener {$containerId} zakończył się błędem podczas przetwarzania.");
+            return false;
+        }
+
+        sleep($delaySeconds);
+    }
+
+    Console::error("Kontener {$containerId} nie osiągnął statusu FINISHED po {$maxAttempts} próbach.");
+    return false;
+}
 }
