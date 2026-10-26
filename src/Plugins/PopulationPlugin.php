@@ -1,17 +1,19 @@
 <?php
 namespace Swagnar\Igapi\Plugins;
 
-use Swagnar\Igapi\Contracts\NewsPlugin;
-use Swagnar\Igapi\Contracts\Bounds;
+use Swagnar\Igapi\Contracts\AbstractPlugin;
 
 use Swagnar\Igapi\Http\JsonClient;
 
 use Swagnar\Igapi\Helper\Console;
-use Swagnar\Igapi\Helper\GdImageHelper;
 
-use GdImage;
+use Swagnar\Igapi\Layout\BarChart;
+use Swagnar\Igapi\Layout\Component;
+use Swagnar\Igapi\Layout\Spacer;
+use Swagnar\Igapi\Layout\Stack;
+use Swagnar\Igapi\Layout\Text;
 
-class PopulationPlugin implements NewsPlugin
+class PopulationPlugin extends AbstractPlugin
 {
     public function __construct(
         private readonly JsonClient $http,
@@ -25,17 +27,28 @@ class PopulationPlugin implements NewsPlugin
         return 'Populacja';
     }
 
-    public function fetchData(): array { return [$this->getWorldPopulationNumber()]; }
+    public function fetchData(): array
+    {
+        return [
+            'population' => $this->getWorldPopulationNumber(),
+            'countries'  => $this->getTopCountriesByPopulation(10),
+        ];
+    }
 
-    public function draw(GdImage $img, array $data, Bounds $bounds): void {
-        $cy = $bounds->y + 55;
-        $count = $this->getWorldPopulationNumber();
-        $formattedCount = number_format($count, 0, ',', ' ');
+    protected function content(array $data): Component
+    {
+        $rows = array_map(fn($country) => [
+            'label'      => $country['name'],
+            'value'      => $country['population'],
+            'valueLabel' => number_format((int)($country['population'] / 1_000_000), 0, ',', ' ') . ' mln',
+            'icon'       => "https://flagcdn.com/32x24/{$country['code']}.png",
+        ], $data['countries']);
 
-        GdImageHelper::drawText($img, 'Ilu nas jest?', 60, $cy, 28, '#FFFFFF', FONT_BOLD);
-        GdImageHelper::centerText($img, $formattedCount, $cy + 70, 54, '#FFFFFF', FONT_BOLD);
-
-        $this->drawCountryPopulationChart($img, $this->getTopCountriesByPopulation(10), $cy + 60);
+        return (new Stack())
+            ->add(new Text('Ilu nas jest?', size: 28, color: '#FFFFFF', font: FONT_BOLD, indent: 20, height: 61))
+            ->add(new Text(number_format($data['population'], 0, ',', ' '), size: 54, color: '#FFFFFF', font: FONT_BOLD, align: 'center', height: 70))
+            ->add(new Spacer(30))
+            ->add(new BarChart($rows, indent: 20));
     }
 
     private function getWorldPopulationNumber(): int {
@@ -101,53 +114,5 @@ class PopulationPlugin implements NewsPlugin
 
         usort($countries, fn($a, $b) => $b['population'] <=> $a['population']);
         return array_slice($countries, 0, $limit);
-    }
-
-    private function drawCountryPopulationChart(GdImage $img, array $countries, int $y): int
-    {
-        $rowH      = 56;
-        $flagW     = 32;
-        $flagH     = 24;
-        $barStartX = 50 + $flagW + 200;   // po fladze + nazwie
-        $barMaxW   = WIDTH - $barStartX - 80;
-        $maxPop    = $countries[0]['population'];
-
-        $y += 40;
-
-        foreach ($countries as $i => $country) {
-            $cy      = $y + (int)($i * $rowH);
-            $barY    = $cy;
-            $flagY   = $cy + 4;
-
-            // ── Flaga PNG z flagcdn.com ───────────────────────────────────────────
-            $flagUrl = "https://flagcdn.com/{$flagW}x{$flagH}/{$country['code']}.png";
-            try {
-                $flagData = @file_get_contents($flagUrl);
-                if ($flagData !== false) {
-                    $flagImg = @imagecreatefromstring($flagData);
-                    if ($flagImg !== false) {
-                        imagecopy($img, $flagImg, 60, $flagY, 0, 0, $flagW, $flagH);
-                        imagedestroy($flagImg);
-                    }
-                }
-            } catch (\Throwable) {
-                // flaga niedostępna — kontynuuj bez niej
-            }
-
-            // ── Nazwa kraju ───────────────────────────────────────────────────────
-            GdImageHelper::drawText($img, $country['name'], 60 + $flagW + 14, $cy + 26, 22, '#CCDDFF', FONT);
-
-            // ── Pasek ─────────────────────────────────────────────────────────────
-            $barW   = (int)(($country['population'] / $maxPop * $barMaxW) - 60);
-            $hue    = (int)(200 + $i * 8);   // lekko różnicowany odcień niebieskiego
-            $barCol = imagecolorallocate($img, 40, 100 + $i * 8, 220 - $i * 6);
-            imagefilledrectangle($img, $barStartX, $barY, $barStartX + $barW, $barY + 28, $barCol);
-
-            // ── Liczba po prawej stronie paska ────────────────────────────────────
-            $popStr = number_format((int)($country['population'] / 1_000_000), 0, ',', ' ') . ' mln';
-            GdImageHelper::drawText($img, $popStr, $barStartX + $barW + 8, $cy + 22, 15, '#8899BB', FONT);
-        }
-
-        return $y + count($countries) * $rowH + 20;
     }
 }

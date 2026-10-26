@@ -2,13 +2,18 @@
 namespace Swagnar\Igapi\Plugins;
 
 use Swagnar\Igapi\Http\JsonClient;
-use Swagnar\Igapi\Contracts\Bounds;
+use Swagnar\Igapi\Contracts\AbstractPlugin;
 use Swagnar\Igapi\Helper\GdImageHelper;
 use Swagnar\Igapi\Helper\Console;
-use GdImage;
+use Swagnar\Igapi\Layout\Component;
+use Swagnar\Igapi\Layout\Photo;
+use Swagnar\Igapi\Layout\Spacer;
+use Swagnar\Igapi\Layout\Stack;
+use Swagnar\Igapi\Layout\Text;
+use Swagnar\Igapi\Layout\WrappedText;
 use RuntimeException;
 
-class DisasterPlugin
+class DisasterPlugin extends AbstractPlugin
 {
     private const CATEGORY_LABELS = [
         'wildfires'    => 'Pożary',
@@ -87,6 +92,14 @@ class DisasterPlugin
 
         $topCategoryId = array_key_first($groups);
         $photo = $this->fetchPhotoForEvent($topCategoryId, $groups[$topCategoryId]);
+
+        if ($photo !== null) {
+            $caption = $photo['title'] . (!empty($photo['year']) ? " ({$photo['year']})" : '');
+            $photo['caption']     = $photo['title'] !== '' ? GdImageHelper::translateToPolish($caption) : null;
+            $photo['description'] = $photo['description'] !== ''
+                ? GdImageHelper::translateToPolish(GdImageHelper::truncateAtWordBoundary($photo['description'], 150))
+                : null;
+        }
 
         return [
             'groups' => $groups,
@@ -210,100 +223,49 @@ class DisasterPlugin
         }
     }
 
-    public function draw(GdImage $img, array $data, Bounds $bounds): void
+    /** Maksymalna liczba kategorii na slajdzie — reszta miejsca należy do zdjęcia */
+    private const MAX_CATEGORIES = 3;
+
+    protected function content(array $data): Component
     {
-        $x = $bounds->x;
-        $y = $bounds->y;
-        $maxWidth = $bounds->width;
+        $stack = (new Stack())
+            ->add(new Text('Aktywne katastrofy na świecie', size: 28, color: '#FFFFFF', font: FONT_BOLD, height: 62));
 
-        GdImageHelper::drawText($img, 'Aktywne katastrofy na świecie', $x, $y, 28, '#FFFFFF', FONT_BOLD);
-        $y += 50;
-
-        foreach ($data['groups'] as $categoryId => $items) {
-            $label = self::CATEGORY_LABELS[$categoryId];
+        foreach (array_slice($data['groups'], 0, self::MAX_CATEGORIES, true) as $categoryId => $items) {
             $count = count($items);
+            $top   = array_slice($items, 0, 3);
 
-            GdImageHelper::centerText($img, "{$label}: {$count}", $y, 24, '#FF8866', FONT_BOLD);
-            $y += 32;
-
-            $top = array_slice($items, 0, 3);
             $placeNames = array_filter(array_map(
                 fn($item) => mb_substr(trim($item['title']), 0, 40),
                 $top
             ), fn($t) => $t !== '');
 
             $placesText = 'Miejsca: ' . implode(', ', $placeNames);
-
-            $remaining = $count - count($top);
+            $remaining  = $count - count($top);
             if ($remaining > 0) {
                 $placesText .= " (+{$remaining} więcej)";
             }
 
-            $y = GdImageHelper::drawWrappedText($img, $placesText, $x, $y, $maxWidth, 18, '#AAAAAA', FONT, 26);
-            $y += 14;
+            $stack->add(new Text(self::CATEGORY_LABELS[$categoryId] . ": {$count}", size: 24, color: '#FF8866', font: FONT_BOLD, align: 'center', marginTop: 8));
+            $stack->add(new WrappedText($placesText, size: 18, color: '#AAAAAA', font: FONT, lineHeight: 26, marginBottom: 14));
         }
 
-        if ($data['photo'] !== null) {
-            $y = $this->drawPhoto($img, $data['photo'], $x, $y, $bounds->width, $bounds->y + $bounds->height - $y);
-        } else {
+        $photo = $data['photo'];
+        if ($photo === null) {
             Console::debug('Brak zdjęcia do narysowania w tym cyklu');
-        }
-    }
-
-    private function drawPhoto(GdImage $img, array $photo, int $x, int $y, int $maxW, int $maxH): int
-    {
-        if ($maxH < 100) {
-            Console::warn('Za mało miejsca na zdjęcie w bounds — pomijam rysowanie');
-            return $y;
+            return $stack;
         }
 
-        $context = stream_context_create(['http' => ['header' => "User-Agent: Mozilla/5.0\r\n"]]);
-        $imageData = @file_get_contents($photo['preview'], false, $context);
-
-        if ($imageData === false) {
-            Console::error("Nie udało się pobrać obrazka: {$photo['preview']}");
-            return $y;
-        }
-
-        $photoImg = imagecreatefromstring($imageData);
-        if ($photoImg === false) {
-            Console::error("Nieprawidłowy format obrazka: {$photo['preview']}");
-            return $y;
-        }
-
-        $srcW = imagesx($photoImg);
-        $srcH = imagesy($photoImg);
-
-        $captionSpace = 60;
-        $imgMaxH = $maxH - $captionSpace;
-
-        $scale = min($maxW / $srcW, $imgMaxH / $srcH);
-        $drawW = (int) ($srcW * $scale);
-        $drawH = (int) ($srcH * $scale);
-
-        imagecopyresampled($img, $photoImg, $x, $y, 0, 0, $drawW, $drawH, $srcW, $srcH);
-        imagedestroy($photoImg);
-
-        $y += $drawH + 15;
-
-        if (!empty($photo['title'])) {
-            $captionTitle = $photo['title'];
-            if (!empty($photo['year'])) {
-                $captionTitle .= " ({$photo['year']})";
-            }
-
-            $translatedTitle = GdImageHelper::translateToPolish($captionTitle);
-            $y = GdImageHelper::drawWrappedText($img, $translatedTitle, $x, $y, $maxW, 20, '#FFFFFF', FONT_BOLD, 26);
-        }
-
-        if (!empty($photo['description'])) {
-            $shortDesc = GdImageHelper::truncateAtWordBoundary($photo['description'], 150);
-            $translatedDesc = GdImageHelper::translateToPolish($shortDesc);
-            $y = GdImageHelper::drawWrappedText($img, $translatedDesc, $x, $y, $maxW, 16, '#888888', FONT, 22);
-        }
-
-        Console::success('Zdjęcie narysowane pomyślnie');
-
-        return $y;
+        return $stack
+            ->add(new Spacer(10))
+            ->add(new Photo(
+                $photo['preview'],
+                caption:      $photo['caption'],
+                description:  $photo['description'],
+                align:        'left',
+                minHeight:    100,
+                captionSize:  20,
+                captionColor: '#FFFFFF',
+            ));
     }
 }

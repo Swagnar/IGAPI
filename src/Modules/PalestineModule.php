@@ -7,11 +7,14 @@ use Swagnar\Igapi\Contracts\StoryPayload;
 use Swagnar\Igapi\Http\JsonClient;
 
 use Swagnar\Igapi\Helper\Console;
-use Swagnar\Igapi\Helper\GdImageHelper;
+
+use Swagnar\Igapi\Layout\Slide;
+use Swagnar\Igapi\Layout\Stack;
+use Swagnar\Igapi\Layout\Stat;
+use Swagnar\Igapi\Layout\Text;
 
 use DateTimeImmutable;
 use GdImage;
-use RuntimeException;
 
 class PalestineModule implements StoryModule
 {
@@ -47,145 +50,6 @@ class PalestineModule implements StoryModule
         [$path, $url] = $this->generateImage($target, $previous);
         return StoryPayload::single($path, $url, 'Palestyna');
 
-    }
-
-    private function generateImageWithNoData(string $date, ?array $latest): array {
-        if(!is_dir(PUBLIC_DIR)) {
-            mkdir(PUBLIC_DIR, 0755, true);
-        }
-        Console::info("Sprawdzam dostępność fontów...");
-
-
-        Console::info("Fonty dostępne, tworzę obraz...");
-        $img = imagecreatetruecolor(WIDTH, HEIGHT);
-        imagealphablending($img, true);
-        imagesavealpha($img, true);
-
-        GdImageHelper::drawBackground($img);
-
-        $latestTotal = $latest ? (int)($latest['killed_cum'] ?? 0) : null;
-        if ($latestTotal > 0) {
-            $this->drawDots($img, $latestTotal, WIDTH, HEIGHT);
-        }
- 
-        GdImageHelper::centerText($img, 'GAZA',                           150,  HEADER_SIZE, '#ffffff', FONT_BOLD);
-        GdImageHelper::centerText($img, $date,                            300,  40         , '#cfcfcf', FONT);
-        GdImageHelper::centerText($img, 'Brak raportu dla tego dnia',     700,  48         , '#ffffff', FONT_BOLD);
-    
-        if ($latest !== null) {
-            $latestDate = $latest['report_date'] ?? '—';
-            GdImageHelper::centerText($img, 'Ostatni raport: ' . $latestDate,         960,  34, '#888888', FONT);
-            GdImageHelper::centerText($img, 'Łącznie zabici',                        1060,  38, '#cfcfcf', FONT);
-            GdImageHelper::centerText($img, $this->fmt($latestTotal),                       1160,  72, '#ffffff', FONT_BOLD);
-    
-            if (!empty($latest['ext_killed_children_cum'])) {
-                GdImageHelper::centerText($img, 'w tym dzieci',                      1270,  34, '#cfcfcf', FONT);
-                GdImageHelper::centerText($img, $this->fmt($latest['ext_killed_children_cum']), 1360, 60, '#ffd166', FONT_BOLD);
-            }
-            if (!empty($latest['ext_killed_women_cum'])) {
-                GdImageHelper::centerText($img, 'w tym kobiety',                     1450,  34, '#cfcfcf', FONT);
-                GdImageHelper::centerText($img, $this->fmt($latest['ext_killed_women_cum']), 1540, 60, '#ffd166', FONT_BOLD);
-            }
-            if (!empty($latest['ext_press_killed_cum'])) {
-                GdImageHelper::centerText($img, 'dziennikarze',                      1630,  34, '#cfcfcf', FONT);
-                GdImageHelper::centerText($img, $this->fmt($latest['ext_press_killed_cum']), 1720, 60, '#ffd166', FONT_BOLD);
-            }
-        }
-    
-        GdImageHelper::centerText($img, 'Źródło: Tech for Palestine', 1820, 28, '#aaaaaa', FONT);
-    
-        $filename = 'gaza-story-' . $date . '.png';
-        $path     = PUBLIC_DIR . '/' . $filename;
-        $url      = PUBLIC_URL . '/' . $filename;
-    
-        imagepng($img, $path, 9);
-        imagedestroy($img);
-    
-        return [$path, $url];
-    }
-
-    private function generateImage(array $report, array $previous): array {
-        if(!is_dir(PUBLIC_DIR)) {
-            mkdir(PUBLIC_DIR, 0755, true);
-        }
-        Console::info("Sprawdzam dostępność fontów...");
-
-
-        Console::info("Fonty dostępne, tworzę obraz...");
-        $img = imagecreatetruecolor(WIDTH, HEIGHT);
-        imagealphablending($img, true);
-        imagesavealpha($img, true);
-
-        GdImageHelper::drawBackground($img);
-
-        // Łączna liczba zabitych
-        $total = (int)($report['killed_cum'] ?? 0);
-        $previousTotal = (int)($previous['killed_cum'] ?? 0);  
-        
-        // killed (dzienny) — preferuj pole 'killed', fallback na różnicę skumulowanych
-        $killedToday    = isset($report['killed']) ? (int)$report['killed'] : ($total - $previousTotal);
-        $killedPrevious = isset($previous['killed']) ? (int)$previous['killed'] : ($previousTotal - 0);
-        
-        // diff = zmiana dziennej liczby zabitych (np. -1 = wczoraj zginęło mniej niż przedwczoraj)
-        $diff = $killedToday - $killedPrevious;
-
-        // Tło z kropek
-        if($total > 0) {
-            $this->drawDots($img, $total, WIDTH, HEIGHT);
-        }
-
-        // Dane z raportu
-        $reportDate = $report['report_date'] ?? 'N/A';
-        $prevReportDate = $previous['report_date'] ?? 'N/A';
-        // $killedTotal = $report['killed'] ?? 0;
-
-        $womenKilled = $report['ext_killed_women_cum'] ?? 0;
-        $childrenKilled = $report['ext_killed_children_cum'] ?? 0;
-        $pressKilled = $report['ext_press_killed_cum'] ?? 0;
-
-
-        // ── Nagłówek ──────────────────────────────────────────────────────────────
-        GdImageHelper::centerText($img, 'GAZA',             150,  72, '#ffffff', FONT_BOLD);
-        GdImageHelper::centerText($img, $reportDate,    300,  40, '#cfcfcf', FONT);
-    
-        // ── Zabici tego dnia ──────────────────────────────────────────────────────
-        GdImageHelper::centerText($img, 'Zabici tego dnia',        440,  38, '#cfcfcf', FONT);
-        GdImageHelper::centerText($img, $this->fmt($killedToday), 580, 130, '#ffffff', FONT_BOLD);
-    
-        // ── Łącznie zabici ────────────────────────────────────────────────────────
-        GdImageHelper::centerText($img, 'Łącznie zabici',          720,  38, '#cfcfcf', FONT);
-        GdImageHelper::centerText($img, $this->fmt($total), 840,  72, '#ffffff', FONT_BOLD);
-    
-        // ── Zmiana vs poprzedni raport ────────────────────────────────────────────
-        $diffPrefix = ($diff >= 0) ? '+' : '';
-        $diffColor  = ($diff > 0)  ? '#ff6b6b' : '#aaaaaa';
-        GdImageHelper::centerText($img, 'Zmiana vs poprzedni raport (' . $prevReportDate . ')', 930, 30, '#888888', FONT);
-        GdImageHelper::centerText($img, $diffPrefix . $this->fmt($diff), 1020, 64, $diffColor, FONT_BOLD);
-    
-        // ── Dzieci / kobiety / dziennikarze ───────────────────────────────────────
-        GdImageHelper::centerText($img, 'w tym dzieci',            1150, 34, '#cfcfcf', FONT);
-        GdImageHelper::centerText($img, $this->fmt($childrenKilled), 1250, 64, '#ffd166', FONT_BOLD);
-    
-        GdImageHelper::centerText($img, 'w tym kobiety',           1340, 34, '#cfcfcf', FONT);
-        GdImageHelper::centerText($img, $this->fmt($womenKilled), 1430, 64, '#ffd166', FONT_BOLD);
-    
-        GdImageHelper::centerText($img, 'dziennikarze',            1520, 34, '#cfcfcf', FONT);
-        GdImageHelper::centerText($img, $this->fmt($pressKilled), 1610, 64, '#ffd166', FONT_BOLD);
-    
-        // ── Stopka ────────────────────────────────────────────────────────────────
-        GdImageHelper::centerText($img, 'Źródło: Tech for Palestine', 1750, 28, '#aaaaaa', FONT);
-
-
-        [$path, $url] = GdImageHelper::saveImage($img, $this->getLabel(), PUBLIC_DIR, PUBLIC_URL);
-
-        // imagepng($img, $path, 9);
-        // imagedestroy($img);
-        if(!is_file($path)) {
-            throw new RuntimeException("Nie udało się zapisać obrazu w " . $path);
-        }
-
-        Console::success("Zapisano obraz: " . $path);
-        return [$path,$url];
     }
 
     private function findLatestTwoWithCum(array $data): array {
@@ -247,8 +111,91 @@ class PalestineModule implements StoryModule
         }
     }
 
+    private function describeDailyChange(int $diff): string {
+        return match (true) {
+            $diff > 0 => 'o ' . $this->fmt($diff) . ' więcej tego dnia',
+            $diff < 0 => 'o ' . $this->fmt(abs($diff)) . ' mniej tego dnia',
+            default   => 'tyle samo co w poprzednim raporcie',
+        };
+    }
+
     private function fmt(int|float|null $number): string {
         return number_format((int)($number ?? 0), 0, ',', ' ');
     }
+
+    private function generateImageWithNoData(string $date, ?array $latest): array {
+        $slide = $this->createSlide($latest !== null ? (int)($latest['killed_cum'] ?? 0) : 0);
+
+        $body = (new Stack(gap: 55))
+            ->add(new Text($date, size: 40, color: '#cfcfcf', font: FONT, align: 'center', height: 52, marginTop: 84))
+            ->add(new Text('Brak raportu dla tego dnia', size: 48, color: '#ffffff', font: FONT_BOLD, align: 'center', height: 70, marginTop: 300));
+
+        if ($latest !== null) {
+            $body
+                ->add(new Text('Ostatni raport: ' . ($latest['report_date'] ?? '—'), size: 34, color: '#888888', font: FONT, align: 'center'))
+                ->add(new Stat('Łącznie zabici', $this->fmt($latest['killed_cum'] ?? 0), labelSize: 38, valueSize: 72));
+            $this->addBreakdown($body, $latest);
+        }
+
+        return $slide->render($body)->save($this->getLabel());
+    }
+
+    private function generateImage(array $report, ?array $previous): array {
+        // Łączna liczba zabitych
+        $total         = (int)($report['killed_cum'] ?? 0);
+        $previousTotal = (int)($previous['killed_cum'] ?? 0);
+
+        // killed (dzienny) — preferuj pole 'killed', fallback na różnicę skumulowanych
+        $killedToday    = isset($report['killed']) ? (int)$report['killed'] : ($total - $previousTotal);
+        // Bez pola 'killed' w poprzednim raporcie nie da się rzetelnie porównać — wtedy pomijamy porównanie
+        $killedPrevious = isset($previous['killed']) ? (int)$previous['killed'] : null;
+
+        $slide = $this->createSlide($total);
+
+        $body = (new Stack(gap: 55))
+            ->add(new Text($report['report_date'] ?? 'N/A', size: 40, color: '#cfcfcf', font: FONT, align: 'center', height: 52, marginTop: 84))
+            ->add(new Stat('Zabici tego dnia', $this->fmt($killedToday), labelSize: 38, valueSize: 130))
+            ->add(new Stat('Łącznie zabici', $this->fmt($total), labelSize: 38, valueSize: 72));
+
+        // Porównanie dziennej liczby zabitych z poprzednim raportem.
+        // Wcześniej był tu sam "-38" z podpisem "Zmiana vs poprzedni raport", co wyglądało jak spadek
+        // łącznej liczby ofiar. Teraz wprost: ile zginęło w poprzednim raporcie i o ile więcej/mniej.
+        if ($killedPrevious !== null) {
+            $diff = $killedToday - $killedPrevious;
+            $body->add((new Stack())
+                ->add(new Text('Poprzedni raport (' . ($previous['report_date'] ?? 'N/A') . ')', size: 30, color: '#888888', font: FONT, align: 'center'))
+                ->add(new Text($this->fmt($killedPrevious) . ' zabitych', size: 52, color: '#aaaaaa', font: FONT_BOLD, align: 'center', height: 80))
+                ->add(new Text($this->describeDailyChange($diff), size: 28, color: $diff > 0 ? '#ff6b6b' : '#888888', font: FONT, align: 'center', marginTop: 12)));
+        }
+
+        $this->addBreakdown($body, $report);
+
+        [$path, $url] = $slide->render($body)->save($this->getLabel());
+        Console::success("Zapisano obraz: " . $path);
+        return [$path, $url];
+    }
+
+    /** Slajd z tytułem, stopką i tłem z kropek (1 kropka = 10 ofiar). */
+    private function createSlide(int $total): Slide {
+        $slide = new Slide('GAZA', footer: Slide::source('Źródło: Tech for Palestine', color: '#aaaaaa', size: 28), footerHeight: 160);
+        if ($total > 0) {
+            $this->drawDots($slide->image(), $total, WIDTH, HEIGHT);
+        }
+        return $slide;
+    }
+
+    /** Dzieci / kobiety / dziennikarze — tylko te pola, które są w raporcie. */
+    private function addBreakdown(Stack $body, array $report): void {
+        $rows = [
+            'w tym dzieci'  => $report['ext_killed_children_cum'] ?? null,
+            'w tym kobiety' => $report['ext_killed_women_cum'] ?? null,
+            'dziennikarze'  => $report['ext_press_killed_cum'] ?? null,
+        ];
+
+        foreach ($rows as $label => $value) {
+            if (!empty($value)) {
+                $body->add(new Stat($label, $this->fmt($value), valueColor: '#ffd166'));
+            }
+        }
+    }
 }
-?>

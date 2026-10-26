@@ -2,18 +2,44 @@
 
 namespace Swagnar\Igapi\Plugins;
 
-use Swagnar\Igapi\Contracts\NewsPlugin;
-use Swagnar\Igapi\Contracts\Bounds;
+use Swagnar\Igapi\Contracts\AbstractPlugin;
 
 use Swagnar\Igapi\Http\JsonClient;
 
 use Swagnar\Igapi\Helper\Console;
-use Swagnar\Igapi\Helper\GdImageHelper;
 
-use GdImage;
+use Swagnar\Igapi\Plugins\MoonProximityBar;
 
-class AsteroidsPlugin implements NewsPlugin {
+use Swagnar\Igapi\Layout\Component;
+use Swagnar\Igapi\Layout\Stack;
+use Swagnar\Igapi\Layout\Text;
+use Swagnar\Igapi\Layout\WrappedText;
+use Swagnar\Igapi\Layout\Spacer;
+use Swagnar\Igapi\Layout\Photo;
+
+class AsteroidsPlugin extends AbstractPlugin {
     private const API_URL = 'https://api.nasa.gov/neo/rest/v1/feed';
+
+    private const WOW_PHOTO_QUERIES = [
+        'asteroid Bennu OSIRIS-REx',
+        'asteroid Ryugu Hayabusa2',
+        'meteor fireball atmosphere',
+        'Oumuamua interstellar asteroid',
+        'DART mission asteroid impact',
+        'Chelyabinsk meteor',
+        'asteroid Vesta Dawn spacecraft',
+        'asteroid Ceres surface',
+        'impact crater asteroid',
+        'asteroid belt illustration',
+        'asteroid Itokawa Hayabusa',
+        'meteorite',
+    ];
+
+    private const SPACE_FACTS = [
+    'Pamiętajcie: (99942) Apophis zbliży się do Ziemi 13 kwietnia 2029 r. na około 31 600 km od powierzchni Ziemi.',
+    'Znamy już ponad 95% asteroid większych niż 1 km. (w okolicy)',
+    'Usunięto Herobrine',
+    ];
 
     public function __construct(
         private readonly JsonClient $http
@@ -27,89 +53,58 @@ class AsteroidsPlugin implements NewsPlugin {
 
     public function fetchData(): array
     {
-        return [$this->getYesterdayAsteroids()];
+        return [
+            'asteroids' => $this->getYesterdayAsteroids(),
+            'photo'     => $this->fetchWowPhoto(),
+        ];
     }
 
-    public function draw(GdImage $img, array $data, Bounds $bounds): void
+    protected function content(array $data): Component
     {
-        $cy = $bounds->y + 55;
-        $asteroids = $data[0] ?? [];
+        $asteroids = $data['asteroids'] ?? [];
+        $photo = $data['photo'] ?? null;
         $count = count($asteroids);
 
-        GdImageHelper::centerText($img, $this->conjugateHeader($count), $cy, 28, '#FFFFFF', FONT_BOLD);
+        $stack = (new Stack())
+            ->add(new Text($this->conjugateHeader($count), size: 28, color: '#FFFFFF', font: FONT_BOLD, align: 'center', height: 35));
 
         if ($count === 0) {
-            return;
+            $stack->add(new Spacer(60));
+            $stack->add($this->photoComponent($photo));
+            return $stack;
         }
 
         $closest = $this->findClosestApproach($asteroids);
         if ($closest === null) {
-            return;
+            return $stack;
         }
 
-        // ── Nazwa najbliższej asteroidy ──────────────────────────────────────
-        $cy += 170;
-        GdImageHelper::drawText($img, 'Najbardziej zbliżyła się ' . $closest['name'] . ' na odległość:', $bounds->x + 60, $cy, 20, '#9AA5BD', FONT);
-
-        // ── Odległość + % odl. do Księżyca ───────────────────────────────────
-        $cy += 50;
         $distanceText = number_format($closest['distance_km'], 0, ',', ' ') . ' km';
-        $moonPercent = $closest['distance_km'] / 384400 * 100;
+        $moonPercent  = $closest['distance_km'] / 384400 * 100;
+ 
+        $stack->add(new Spacer(100));
+        $stack->add(new Text('Najbardziej zbliżyła się ' . $closest['name'] . ' na odległość:', size: 20, color: '#9AA5BD', font: FONT, indent: 60, height: 50));
+        $stack->add(new Text($distanceText, size: 24, color: '#FFFFFF', font: FONT_BOLD, indent: 60, height: 55));
+        $stack->add(new MoonProximityBar($moonPercent, indent: 60));
+        $stack->add(new Spacer(10));
+        //$stack->add(new WrappedText(
+        //    text: $this->pickSpaceFact(),
+        //    size: 16, color: '#6B7A99', font: FONT, indent: 60, widthPadding: 120, lineHeight: 22,
+        //));
+        $stack->add(new Spacer(30));
+        $stack->add($this->photoComponent($photo));
+ 
+        return $stack;
+    }
 
-        GdImageHelper::drawText($img, $distanceText , $bounds->x + 60, $cy, 24, '#FFFFFF', FONT_BOLD);
-
-        // ── Pasek proporcji Ziemia -> Księżyc (lub mnożnik, gdy poza skalą) ──
-        $cy += 55;
-        $barWidth = $bounds->width - 120;
-        $iconSize = 24;
-        $barColor = $moonPercent <= 100 ? '#4FD1C5' : '#F87171';
-
-        if ($moonPercent <= 300) {
-            $scaleMax = 300;
-            $fillPercent = min($moonPercent, $scaleMax) / $scaleMax * 100;
-            $moonMarkerX = (int) round($bounds->x + 60 + $barWidth * (100 / $scaleMax));
-
-            GdImageHelper::drawProgressBar($img, $bounds->x + 60, $cy, $barWidth, 22, $fillPercent, $barColor, '#1E2A3A');
-
-            // znacznik pozycji Księżyca na skali
-            imagefilledrectangle($img, $moonMarkerX, $cy - 4, $moonMarkerX + 3, $cy + 26, GdImageHelper::hexToGdColor($img, '#FFFFFF'));
-
-            GdImageHelper::drawEmojiIcon($img, '1f30d', $bounds->x + 60, $cy + 32, $iconSize);
-            GdImageHelper::drawEmojiIcon($img, '1f315', $moonMarkerX - $iconSize + 15, $cy + 32, $iconSize);
-
-            GdImageHelper::drawText($img, 'Ziemia', $bounds->x + 60 + $iconSize + 8, $cy + 36, 16, '#8894A8', FONT);
-            GdImageHelper::drawText($img, 'Księżyc', $moonMarkerX + 20, $cy + 36, 16, '#8894A8', FONT);
-
-            $cy += 90;
-        } else {
-            $multiplier = number_format($moonPercent / 100, 1, ',', ' ');
-            GdImageHelper::drawText(
-                $img,
-                "Na szczęście to aż {$multiplier}× dalej niż Księżyc",
-                $bounds->x + 60,
-                $cy,
-                20,
-                '#F87171',
-                FONT_BOLD
-            );
-            $cy += 60;
+    private function photoComponent(?array $photo): Photo
+    {
+        $caption = null;
+        if (!empty($photo['title'])) {
+            $caption = $photo['title'] . (!empty($photo['year']) ? " ({$photo['year']})" : '');
         }
 
-        // ── Notka o Apophis, zawinięta ────────────────────────────────────────
-        $cy += 30;
-        $apophisText = 'Pamiętajcie: (99942) Apophis zbliży się do Ziemi 13 kwietnia 2029 r. na 31 600 km (8,2% odl. do Księżyca)';
-
-        GdImageHelper::drawWrappedText(
-            $img,
-            $apophisText,
-            $bounds->x + 60,
-            $cy,
-            $bounds->width - 120,
-            16,
-            '#6B7A99',
-            FONT,
-            22
-        );
+        return new Photo($photo['preview'] ?? null, caption: $caption, indent: 60, widthPadding: 120);
     }
 
     private function getYesterdayAsteroids(): array {
@@ -133,7 +128,6 @@ class AsteroidsPlugin implements NewsPlugin {
 
         return $response['near_earth_objects'][$yesterday] ?? [];
     }
-
     private function findClosestApproach(array $asteroids): ?array
     {
         $closest = null;
@@ -152,7 +146,73 @@ class AsteroidsPlugin implements NewsPlugin {
 
         return $closest;
     }
+    private function fetchWowPhoto(): ?array
+    {
+        Console::info("Szukam efektownego zdjęcia asteroidy/meteoru...");
 
+        // Seed zależny od dnia — to samo zdjęcie utrzymuje się przez cały dzień,
+        // ale każdego dnia zaczynamy przeszukiwanie od innego miejsca w liście zapytań.
+        $seed = (int) date('Ymd');
+        mt_srand($seed);
+        $startIndex = mt_rand(0, count(self::WOW_PHOTO_QUERIES) - 1);
+        mt_srand(); // reset seeda, żeby nie wpłynąć na inne losowania w tym requeście
+
+        $queries = self::WOW_PHOTO_QUERIES;
+        $ordered = array_merge(
+            array_slice($queries, $startIndex),
+            array_slice($queries, 0, $startIndex)
+        );
+
+        foreach ($ordered as $query) {
+            $photo = $this->searchPhoto($query);
+            if ($photo !== null) {
+                Console::success("Znaleziono zdjęcie: \"{$photo['title']}\" ({$photo['year']}) dla zapytania \"{$query}\"");
+                return $photo;
+            }
+        }
+
+        Console::warn('Nie znaleziono żadnego zdjęcia asteroidy po wszystkich próbach');
+        return null;
+    }
+    private function searchPhoto(string $query): ?array
+    {
+        try {
+            $url = 'https://images-api.nasa.gov/search?' . http_build_query([
+                'q'          => $query,
+                'media_type' => 'image',
+            ]);
+
+            $data = $this->http->get($url);
+            $items = $data['collection']['items'] ?? [];
+
+            if (empty($items)) {
+                return null;
+            }
+
+            // Losujemy jedno z kilku pierwszych (najtrafniejszych) wyników — dla urozmaicenia
+            $top = array_slice($items, 0, min(5, count($items)));
+            $item = $top[array_rand($top)];
+
+            $itemData = $item['data'][0] ?? [];
+            $preview = $item['links'][0]['href'] ?? null;
+
+            if ($preview === null) {
+                return null;
+            }
+
+            $dateCreated = $itemData['date_created'] ?? '';
+
+            return [
+                'preview'     => $preview,
+                'title'       => $itemData['title'] ?? '',
+                'description' => $itemData['description'] ?? '',
+                'year'        => $dateCreated !== '' ? substr($dateCreated, 0, 4) : '',
+            ];
+        } catch (\Throwable $e) {
+            Console::error("Błąd wyszukiwania zdjęcia asteroidy: " . $e->getMessage());
+            return null;
+        }
+    }
     private function pluralizeAsteroid(int $count): string
     {
         if ($count === 1) {

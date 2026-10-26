@@ -75,6 +75,3 @@ class Console {
         self::write('FATAL', "\033[41;97m", $message);
     }
 }
-
-
-?>

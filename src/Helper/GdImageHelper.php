@@ -14,14 +14,15 @@ class GdImageHelper {
         string $text, 
         int $y, 
         int $size, 
-        string $colorHex, 
-        string $font
+        string $colorHex,
+        string $font,
+        ?int $centerX = null    // null = środek całego canvasu
     ):void {
         $rgb = sscanf($colorHex, "#%02x%02x%02x");
         $col = imagecolorallocate($img, $rgb[0], $rgb[1], $rgb[2]);
         $box = imagettfbbox($size, 0, $font, $text);
         $width = $box[2] - $box[0];
-        $x = (1080 - $width) / 2;
+        $x = ($centerX ?? intdiv(WIDTH, 2)) - $width / 2;
         imagettftext($img, $size, 0, (int)$x, $y, $col, $font, $text);
     }
 
@@ -162,25 +163,53 @@ class GdImageHelper {
 
     public static function drawEmojiIcon(GdImage $img, string $codepoint, int $x, int $y, int $size): void
     {
-        $iconUrl = "https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/72x72/{$codepoint}.png";
-
-        try {
-            $iconData = @file_get_contents($iconUrl);
-            if ($iconData === false) {
-                return;
-            }
-
-            $iconImg = @imagecreatefromstring($iconData);
-            if ($iconImg === false) {
-                return;
-            }
-
-            // Twemoji ma przezroczyste tło i jest 72x72 - skalujemy do żądanego rozmiaru
-            imagecopyresampled($img, $iconImg, $x, $y, 0, 0, $size, $size, 72, 72, $iconImg->width ?? 72, $iconImg->height ?? 72);
-            imagedestroy($iconImg);
-        } catch (\Throwable) {
-            // ikona niedostępna — kontynuuj bez niej
+        $iconImg = self::loadRemoteImage("https://cdn.jsdelivr.net/gh/twitter/twemoji@latest/assets/72x72/{$codepoint}.png");
+        if ($iconImg === null) {
+            return; // ikona niedostępna — kontynuuj bez niej
         }
+
+        // Twemoji ma przezroczyste tło i jest 72x72 - skalujemy do żądanego rozmiaru
+        imagecopyresampled($img, $iconImg, $x, $y, 0, 0, $size, $size, imagesx($iconImg), imagesy($iconImg));
+        imagedestroy($iconImg);
+    }
+
+    /**
+     * Pobiera obrazek z sieci i zwraca go jako GdImage (null, gdy nie da się pobrać lub zdekodować).
+     */
+    public static function loadRemoteImage(string $url, int $timeout = 20): ?GdImage
+    {
+        $context = stream_context_create([
+            'http' => [
+                'header'  => "User-Agent: Mozilla/5.0\r\n",
+                'timeout' => $timeout,
+            ],
+        ]);
+
+        $data = @file_get_contents($url, false, $context);
+        if ($data === false) {
+            Console::debug("Nie udało się pobrać obrazka: {$url}");
+            return null;
+        }
+
+        $image = @imagecreatefromstring($data);
+        if ($image === false) {
+            Console::debug("Nieprawidłowy format obrazka: {$url}");
+            return null;
+        }
+
+        return $image;
+    }
+
+    public static function textWidth(string $text, int $size, string $font): int
+    {
+        $box = imagettfbbox($size, 0, $font, $text);
+        return $box[2] - $box[0];
+    }
+
+    /** Rysuje tekst tak, by kończył się na $xRight. */
+    public static function rightText(GdImage $img, string $text, int $xRight, int $y, int $size, string $colorHex, string $font): void
+    {
+        self::drawText($img, $text, $xRight - self::textWidth($text, $size, $font), $y, $size, $colorHex, $font);
     }
 
     public static function drawFrame(GdImage $img, Bounds $bounds, string $label, string $borderColor = '#334455', string $labelColor = '#AABBCC'): void
@@ -210,41 +239,114 @@ class GdImageHelper {
         );
     }
 
+    /** @var array<string, string> tłumaczenia z bieżącego uruchomienia — mniej zapytań, mniej 429 */
+    private static array $translationCache = [];
+
+    /**
+     * Tłumaczy tekst EN → PL. Próbuje kolejno kilku darmowych endpointów (nieoficjalne endpointy
+     * Google potrafią zwracać 429), a gdy wszystkie zawiodą — zwraca oryginał.
+     */
     public static function translateToPolish(string $text): string
     {
+        $text = trim($text);
         if ($text === '') {
             return $text;
         }
+        if (isset(self::$translationCache[$text])) {
+            return self::$translationCache[$text];
+        }
+
         Console::info("Tłumaczę tekst na polski: $text");
-        try {
-            $url = 'https://translate.googleapis.com/translate_a/single?' . http_build_query([
-                'client' => 'gtx',
-                'sl'     => 'en',
-                'tl'     => 'pl',
-                'dt'     => 't',
-                'q'      => $text,
-            ]);
 
-            $context = stream_context_create([
-                'http' => [
-                    'header'  => "User-Agent: Mozilla/5.0\r\n",
-                    'timeout' => 5,
-                ],
-            ]);
+        $providers = [
+            'google-dict' => fn() => self::translateGoogleDict($text),
+            'google-gtx'  => fn() => self::translateGoogleGtx($text),
+            'mymemory'    => fn() => self::translateMyMemory($text),
+        ];
 
-            $response = @file_get_contents($url, false, $context);
-            if ($response === false) {
-                return $text;
+        foreach ($providers as $name => $translate) {
+            try {
+                $translated = $translate();
+            } catch (\Throwable $e) {
+                $translated = null;
+                Console::debug("Tłumaczenie ({$name}) nieudane: " . $e->getMessage());
             }
 
-            $decoded = json_decode($response, true);
-            $translated = $decoded[0][0][0] ?? null;
-            Console::success("Tłumaczenie zakończone: $translated");
-            return is_string($translated) && $translated !== '' ? $translated : $text;
-        } catch (\Throwable $e) {
-            Console::error("Tłumaczenie nieudane: " . $e->getMessage());
-            return $text;
+            if (is_string($translated) && trim($translated) !== '') {
+                $translated = trim(html_entity_decode($translated, ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+                Console::success("Tłumaczenie ({$name}) zakończone: $translated");
+                return self::$translationCache[$text] = $translated;
+            }
         }
+
+        Console::warn("Żaden serwis tłumaczeń nie odpowiedział — zostawiam oryginał");
+        return $text;
+    }
+
+    private static function fetchTranslationJson(string $url): mixed
+    {
+        $context = stream_context_create([
+            'http' => [
+                'header'  => "User-Agent: Mozilla/5.0\r\n",
+                'timeout' => 8,
+            ],
+        ]);
+
+        $response = @file_get_contents($url, false, $context);
+        if ($response === false) {
+            throw new \RuntimeException($http_response_header[0] ?? 'brak odpowiedzi');
+        }
+
+        return json_decode($response, true);
+    }
+
+    // Zwraca np. ["Dym unosi się wśród chmur."]
+    private static function translateGoogleDict(string $text): ?string
+    {
+        $data = self::fetchTranslationJson('https://clients5.google.com/translate_a/t?' . http_build_query([
+            'client' => 'dict-chrome-ex',
+            'sl'     => 'en',
+            'tl'     => 'pl',
+            'q'      => $text,
+        ]));
+
+        $first = $data[0] ?? null;
+        return is_array($first) ? ($first[0] ?? null) : $first;   // przy sl=auto zwraca [tekst, język]
+    }
+
+    // Zwraca [[["zdanie 1", "src 1", ...], ["zdanie 2", ...]], ...] — trzeba skleić wszystkie zdania
+    private static function translateGoogleGtx(string $text): ?string
+    {
+        $data = self::fetchTranslationJson('https://translate.googleapis.com/translate_a/single?' . http_build_query([
+            'client' => 'gtx',
+            'sl'     => 'en',
+            'tl'     => 'pl',
+            'dt'     => 't',
+            'q'      => $text,
+        ]));
+
+        if (!is_array($data[0] ?? null)) {
+            return null;
+        }
+        return implode('', array_map(fn($segment) => $segment[0] ?? '', $data[0]));
+    }
+
+    // Limit 500 znaków na zapytanie
+    private static function translateMyMemory(string $text): ?string
+    {
+        if (strlen($text) > 500) {
+            return null;
+        }
+
+        $data = self::fetchTranslationJson('https://api.mymemory.translated.net/get?' . http_build_query([
+            'q'        => $text,
+            'langpair' => 'en|pl',
+        ]));
+
+        if (($data['responseStatus'] ?? 0) != 200 || !empty($data['quotaFinished'])) {
+            return null;
+        }
+        return $data['responseData']['translatedText'] ?? null;
     }
 
     public static function truncateAtWordBoundary(string $text, int $maxLength): string

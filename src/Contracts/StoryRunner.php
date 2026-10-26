@@ -4,9 +4,10 @@ namespace Swagnar\Igapi\Contracts;
 use Swagnar\Igapi\Http\InstagramPublisher;
 use Swagnar\Igapi\Contracts\StoryModule;
 use Swagnar\Igapi\Helper\Console;
-
-use RuntimeException;
-use Bounds;
+use Swagnar\Igapi\Layout\Slide;
+use Swagnar\Igapi\Layout\Stack;
+use Swagnar\Igapi\Layout\Text;
+use Swagnar\Igapi\Layout\WrappedText;
 
 class StoryRunner
 {
@@ -16,6 +17,19 @@ class StoryRunner
     ){}
 
     public function run(): void {
+        if (!DEBUG) {
+            $tokenStatus = $this->publisher->checkTokenStatus();
+
+            if (!$tokenStatus['valid']) {
+                Console::fatal("Token dostępu Meta jest nieprawidłowy/wygasły: " . $tokenStatus['message']);
+                Console::fatal("Pomijam wszystkie moduły — publikacja i tak by się nie powiodła.");
+                $this->saveTokenExpiredAlert($tokenStatus['message']);
+                return;
+            }
+
+            Console::success("Token dostępu Meta jest ważny.");
+        }
+
         foreach($this->modules as $module) {
             if (!$module instanceof StoryModule) {
                 throw new \InvalidArgumentException("Module musi implementować StoryModule");
@@ -25,7 +39,7 @@ class StoryRunner
                 $payload = $module->run();
                 Console::module("Moduł " . $module->getLabel() . " zakończył działanie.");
             } catch (\Throwable $e) {
-                Console::error("Błąd w module " . $module->getLabel() . ": " . $e->getMessage() . '\n' . $e->getTraceAsString());
+                Console::error("Błąd w module " . $module->getLabel() . ": " . $e->getMessage() . "\n" . $e->getTraceAsString());
                 continue;
             }
             foreach($payload->slides as $slide) {
@@ -43,7 +57,21 @@ class StoryRunner
             }
         }
     }
+
+    /**
+     * Zapisuje lokalnie obrazek informujący o wygaśnięciu tokenu.
+     * Nie próbujemy go publikować przez Graph API — token jest nieważny,
+     * więc próba publikacji i tak zakończy się błędem.
+     */
+    private function saveTokenExpiredAlert(string $reason): void
+    {
+        $body = (new Stack(gap: 30))
+            ->add(new Text('Kręcą korbą', size: HEADER_SIZE, color: '#FF6666', font: FONT_BOLD, align: 'center', height: 90, marginTop: 570))
+            ->add(new WrappedText($reason, size: 22, color: '#AAAAAA', font: FONT, indent: 40, widthPadding: 80, lineHeight: 30));
+
+        $slide = new Slide(footer: Slide::source(date('Y-m-d H:i:s'), color: '#556688'));
+        [$path, $url] = $slide->render($body)->save('token-expired');
+
+        Console::warn("Zapisano lokalny alert o wygasłym tokenie: {$path}");
+    }
 }
-
-
-?>

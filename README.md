@@ -81,8 +81,35 @@ run.php                  # Punkt wejścia — konfiguracja, rejestracja modułó
 ├── Bounds                 # DTO — prostokątny obszar (x, y, width, height) do rysowania
 ├── InstagramPublisher     # Wysyła obrazek do Meta Graph API i czeka na status kontenera
 ├── JsonClient              # HTTP client (GET/POST/cURL)
-├── GdImageHelper            # Zestaw helperów do rysowania na płótnie GD (tekst, paski, ramki, tło, ikony, zapis)
+├── GdImageHelper            # Niskopoziomowe helpery GD (tekst, tło, ikony, pobieranie obrazków, tłumaczenie, zapis)
+├── Layout\*                  # Komponenty do składania slajdów (patrz niżej)
 └── Console                   # Kolorowy output w terminalu (boot/module/plugin/info/success/warn/error)
+```
+
+### Layout
+
+Slajdy składa się z komponentów (`Layout\Component`), zamiast rysować tekst w ręcznie liczonych współrzędnych. Każdy komponent dostaje prostokąt (`Bounds`), rysuje się w nim i zwraca zajętą wysokość.
+
+| Komponent | Do czego |
+|---|---|
+| `Slide` | Szkielet Story: tło, tytuł (+ podtytuł), obszar treści, stopka, zapis do pliku |
+| `Stack` | Układa dzieci jedno pod drugim (z opcjonalnym `gap`) |
+| `VerticalSplit` | Dzieli obszar na równe sloty (np. pluginy w `NewsModule`) |
+| `Text`, `WrappedText` | Tekst w jednej linii (left/center/right) i tekst zawijany |
+| `Stat` | Wycentrowana etykieta + duża liczba |
+| `Photo` | Zdjęcie z sieci, skalowane do dostępnego miejsca, z podpisem i opisem |
+| `LineChart`, `BarChart` | Wykres liniowy (oś X proporcjonalna do czasu) i poziomy słupkowy |
+| `Separator`, `Spacer` | Linia pozioma / pusty odstęp |
+| `Custom` | Furtka na rysowanie niestandardowe (np. mapa pogody) |
+
+```php
+$slide = new Slide('MARS', footer: Slide::source('Źródło: NASA'));
+[$path, $url] = $slide->render(
+    (new Stack())
+        ->add(new Text('Pogoda w kraterze Gale', size: 28, color: '#FFFFFF', font: FONT_BOLD, align: 'center'))
+        ->add(new Separator())
+        ->add(new Photo($url, caption: 'Podpis', maxHeight: 400))
+)->save('mars');
 ```
 
 ### Przepływ działania
@@ -128,7 +155,7 @@ Moduł zarezerwowany na przyszłe funkcje upamiętniające — obecnie tylko log
 
 ## Pluginy (`NewsPlugin`, używane przez `NewsModule`)
 
-Każdy plugin implementuje `getLabel()`, `fetchData()` oraz `draw(GdImage $img, array $data, Bounds $bounds)` i rysuje swoją zawartość wyłącznie w przydzielonym mu fragmencie (`Bounds`) canvasu.
+Każdy plugin rozszerza `AbstractPlugin`: implementuje `getLabel()`, `fetchData()` oraz `content(array $data): Component` i rysuje się wyłącznie w przydzielonym mu slocie (`Bounds`) canvasu.
 
 ### `AsteroidsPlugin`
 Pobiera z NASA NeoWs listę asteroid, które przeleciały wczoraj blisko Ziemi, znajduje najbliższe przejście, pokazuje dystans oraz pasek proporcji względem odległości do Księżyca (lub mnożnik, gdy dystans jest poza skalą). Dokleja stałą notkę o zbliżeniu (99942) Apophis w 2029 r.
@@ -154,11 +181,14 @@ Szacuje bieżącą populację świata na podstawie ekstrapolacji liniowej oraz r
 
 ## Tworzenie własnego modułu
 
-Zaimplementuj interfejs `StoryModule`:
+Zaimplementuj interfejs `StoryModule` i złóż slajd z komponentów `Layout`:
 
 ```php
 use Swagnar\Igapi\Contracts\StoryModule;
 use Swagnar\Igapi\Contracts\StoryPayload;
+use Swagnar\Igapi\Layout\Slide;
+use Swagnar\Igapi\Layout\Stack;
+use Swagnar\Igapi\Layout\Stat;
 
 class MojModul implements StoryModule
 {
@@ -169,14 +199,19 @@ class MojModul implements StoryModule
 
     public function run(): StoryPayload
     {
-        // Wygeneruj obrazek, zapisz go na dysku i zwróć payload
-        $path = '/sciezka/do/obrazka.png';
-        $url  = 'https://twoja-domena.pl/obrazek.png';
+        $body = (new Stack(gap: 40))
+            ->add(new Stat('Odpowiedź', '42'));
+
+        [$path, $url] = (new Slide('MÓJ MODUŁ', footer: Slide::source('Źródło: ja')))
+            ->render($body)
+            ->save('moj-modul');
 
         return StoryPayload::single($path, $url, $this->getLabel());
     }
 }
 ```
+
+Moduł, który danego dnia nie ma nic do opublikowania, może zwrócić `new StoryPayload([], $this->getLabel())`.
 
 Następnie zarejestruj go w `run.php`:
 
@@ -188,14 +223,15 @@ $modules = [
 
 ## Tworzenie własnego pluginu do `NewsModule`
 
-Zaimplementuj interfejs `NewsPlugin`:
+Rozszerz `AbstractPlugin` — pobierz dane w `fetchData()`, a w `content()` zwróć komponent, który zostanie narysowany w przydzielonym slocie:
 
 ```php
-use Swagnar\Igapi\Contracts\NewsPlugin;
-use Swagnar\Igapi\Contracts\Bounds;
-use GdImage;
+use Swagnar\Igapi\Contracts\AbstractPlugin;
+use Swagnar\Igapi\Layout\Component;
+use Swagnar\Igapi\Layout\Stack;
+use Swagnar\Igapi\Layout\Text;
 
-class MojPlugin implements NewsPlugin
+class MojPlugin extends AbstractPlugin
 {
     public function getLabel(): string
     {
@@ -204,13 +240,15 @@ class MojPlugin implements NewsPlugin
 
     public function fetchData(): array
     {
-        // Pobierz i zwróć dane potrzebne do rysowania
-        return [];
+        // Pobierz i zwróć dane potrzebne do rysowania (tu też tłumaczenia itp.)
+        return ['value' => 123];
     }
 
-    public function draw(GdImage $img, array $data, Bounds $bounds): void
+    protected function content(array $data): Component
     {
-        // Rysuj wyłącznie wewnątrz przydzielonego $bounds
+        return (new Stack())
+            ->add(new Text('Mój plugin', size: 28, color: '#FFFFFF', font: FONT_BOLD))
+            ->add(new Text((string) $data['value'], size: 54, color: '#FFFFFF', font: FONT_BOLD, align: 'center', height: 70));
     }
 }
 ```
@@ -238,6 +276,7 @@ igapi/
     │   ├── StoryPayload.php
     │   ├── StoryRunner.php
     │   ├── NewsPlugin.php
+    │   ├── AbstractPlugin.php
     │   └── Bounds.php
     ├── Helper/
     │   ├── Console.php
@@ -245,6 +284,20 @@ igapi/
     ├── Http/
     │   ├── JsonClient.php
     │   └── InstagramPublisher.php
+    ├── Layout/
+    │   ├── Component.php
+    │   ├── Slide.php
+    │   ├── Stack.php
+    │   ├── VerticalSplit.php
+    │   ├── Text.php
+    │   ├── WrappedText.php
+    │   ├── Stat.php
+    │   ├── Photo.php
+    │   ├── LineChart.php
+    │   ├── BarChart.php
+    │   ├── Separator.php
+    │   ├── Spacer.php
+    │   └── Custom.php
     ├── Modules/
     │   ├── WeatherModule.php
     │   ├── PalestineModule.php
@@ -255,5 +308,6 @@ igapi/
         ├── AsteroidsPlugin.php
         ├── DisasterPlugin.php
         ├── BitcoinPlugin.php
-        └── PopulationPlugin.php
+        ├── PopulationPlugin.php
+        └── MoonProximityBar.php
 ```

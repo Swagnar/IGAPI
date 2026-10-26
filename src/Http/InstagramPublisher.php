@@ -18,7 +18,7 @@ class InstagramPublisher
 
     public function publish(string $imageUrl): void {
         $container = $this->http->post(
-            self::BASE_URL . "/{$this->igUserId}/media",
+            self::BASE_URL . "{$this->igUserId}/media",
             [
                 'image_url' => $imageUrl,
                 'media_type' => 'STORIES',
@@ -37,7 +37,7 @@ class InstagramPublisher
 
         Console::debug("Kontener gotowy, próbuję publikować...");
         $result = $this->graph_post(
-            self::BASE_URL . "/{$this->igUserId}/media_publish",
+            self::BASE_URL . "{$this->igUserId}/media_publish",
             [
                 'creation_id' => $containerId,
                 'access_token' => $this->accessToken,
@@ -70,26 +70,53 @@ class InstagramPublisher
         return $data;
     }
     private function waitUntilContainerReady(string $containerId, int $maxAttempts = 10, int $delaySeconds = 3): bool
-{
-    for ($i = 0; $i < $maxAttempts; $i++) {
-        $response = $this->http->get(self::BASE_URL . "{$containerId}?fields=status_code&access_token={$this->accessToken}");
-        $status = $response['status_code'] ?? null;   // bez ['data']
+    {
+        for ($i = 0; $i < $maxAttempts; $i++) {
+            $response = $this->http->get(self::BASE_URL . "{$containerId}?fields=status_code&access_token={$this->accessToken}");
+            $status = $response['status_code'] ?? null;   // bez ['data']
 
-        Console::debug("Status kontenera {$containerId}: {$status} (próba " . ($i + 1) . "/{$maxAttempts})");
+            Console::debug("Status kontenera {$containerId}: {$status} (próba " . ($i + 1) . "/{$maxAttempts})");
 
-        if ($status === 'FINISHED') {
-            return true;
+            if ($status === 'FINISHED') {
+                return true;
+            }
+
+            if ($status === 'ERROR') {
+                Console::error("Kontener {$containerId} zakończył się błędem podczas przetwarzania.");
+                return false;
+            }
+
+            sleep($delaySeconds);
         }
 
-        if ($status === 'ERROR') {
-            Console::error("Kontener {$containerId} zakończył się błędem podczas przetwarzania.");
-            return false;
-        }
-
-        sleep($delaySeconds);
+        Console::error("Kontener {$containerId} nie osiągnął statusu FINISHED po {$maxAttempts} próbach.");
+        return false;
     }
 
-    Console::error("Kontener {$containerId} nie osiągnął statusu FINISHED po {$maxAttempts} próbach.");
-    return false;
-}
+    public function checkTokenStatus(): array
+    {
+        $ch = curl_init(self::BASE_URL . "me?fields=id&access_token={$this->accessToken}");
+        curl_setopt_array($ch, [
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_TIMEOUT        => 15,
+        ]);
+
+        $response = curl_exec($ch);
+        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $curlErr  = curl_error($ch);
+        curl_close($ch);
+
+        if ($response === false) {
+            return ['valid' => false, 'message' => "Błąd połączenia: {$curlErr}"];
+        }
+
+        $data = json_decode($response, true);
+
+        if ($httpCode === 200 && isset($data['id'])) {
+            return ['valid' => true, 'message' => null];
+        }
+
+        $message = $data['error']['message'] ?? "Nieznany błąd walidacji tokenu (HTTP {$httpCode})";
+        return ['valid' => false, 'message' => $message];
+    }
 }

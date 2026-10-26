@@ -12,15 +12,24 @@ class JsonClient {
      */
     public function get(string $url): array
     {
-        $json = file_get_contents($url);
+        $context = stream_context_create(['http' => ['timeout' => 30]]);
+        $json = @file_get_contents($url, false, $context);
         if ($json === false) {
-            throw new RuntimeException("Nie udało się pobrać: $url");
+            throw new RuntimeException("Nie udało się pobrać: " . self::maskSecrets($url));
         }
-        $data = json_decode($json, true); 
+        $data = json_decode($json, true);
         if (!is_array($data)) {
-            throw new RuntimeException("Nieprawidłowy JSON z: $url");
+            throw new RuntimeException("Nieprawidłowy JSON z: " . self::maskSecrets($url));
         }
         return $data;
+    }
+
+    /**
+     * Ukrywa tokeny/klucze API w URL-ach, żeby nie trafiały do logów.
+     */
+    private static function maskSecrets(string $url): string
+    {
+        return preg_replace('/(access_token|api_key)=[^&]*/', '$1=***', $url);
     }
 
     public function post(string $url, array $params): array
@@ -57,9 +66,7 @@ class JsonClient {
     }
 
     public function translate(string $text): string {
-        $url  = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl=en&tl=pl&dt=t&q=' . urlencode($text);
-        $data = $this->get($url);
-        return $data[0][0][0] ?? $text;
+        return \Swagnar\Igapi\Helper\GdImageHelper::translateToPolish($text);
     }
 
     public function getCurl(string $url): array 

@@ -5,80 +5,88 @@ use Swagnar\Igapi\Http\JsonClient;
 
 use Swagnar\Igapi\Contracts\StoryModule;
 use Swagnar\Igapi\Contracts\StoryPayload;
+use Swagnar\Igapi\Contracts\NewsPlugin;
 use Swagnar\Igapi\Contracts\Bounds;
-
 
 use Swagnar\Igapi\Plugins\BitcoinPlugin;
 use Swagnar\Igapi\Plugins\PopulationPlugin;
 use Swagnar\Igapi\Plugins\AsteroidsPlugin;
 use Swagnar\Igapi\Plugins\DisasterPlugin;
 
-use Swagnar\Igapi\Helper\Console;
-use Swagnar\Igapi\Helper\GdImageHelper;
+use Swagnar\Igapi\Layout\Component;
+use Swagnar\Igapi\Layout\Custom;
+use Swagnar\Igapi\Layout\Slide;
+use Swagnar\Igapi\Layout\Spacer;
+use Swagnar\Igapi\Layout\VerticalSplit;
 
-use DateTimeImmutable;
+use Swagnar\Igapi\Helper\Console;
+
 use RuntimeException;
 use GdImage;
 
 
 class NewsModule implements StoryModule
 {
+    private const PLUGINS_PER_SLIDE = 2;
+    private const SLOT_GAP          = 40; // odstęp między pluginami, żeby treść sąsiednich slotów się nie stykała
+
     private array $availablePlugins;
 
     public function __construct(private readonly JsonClient $http)
     {
         $this->availablePlugins = [
-            // new BitcoinPlugin($http),
+            new BitcoinPlugin($http),
             // new PopulationPlugin($http),
             new AsteroidsPlugin($http),
-            new DisasterPlugin($http),
+            // new DisasterPlugin($http),
         ];
     }
 
     public function getLabel(): string { return 'Wiadomości'; }
 
     public function run(): StoryPayload
-{
-    $selected = $this->pickPlugins(count: 2);
+    {
+        $selected = $this->pickPlugins(count: self::PLUGINS_PER_SLIDE);
+        if (empty($selected)) {
+            throw new RuntimeException('Brak zarejestrowanych pluginów w NewsModule');
+        }
 
-    $img = GdImageHelper::createCanvas(WIDTH, HEIGHT);
+        // Każdy plugin dostaje równy slot — kolejność losowa (pickPlugins shuffluje)
+        $slots = new VerticalSplit(gap: self::SLOT_GAP);
+        foreach ($selected as $plugin) {
+            $slots->add($this->pluginSlot($plugin));
+        }
 
-    // Nagłówek: 140px, stopka: 60px
-    $headerH = 180;
-    $footerH = 80;
-    $usable  = HEIGHT - $headerH - $footerH;  // przestrzeń dla pluginów
+        $slide = new Slide('ŚWIAT', footer: Slide::source('Źródło: nie interesuj się'));
+        [$path, $url] = $slide->render($slots)->save('news');
 
-    GdImageHelper::centerText($img, 'ŚWIAT', 150, HEADER_SIZE, '#FFFFFF', FONT_BOLD);
+        return StoryPayload::single($path, $url, $this->getLabel());
+    }
 
-    // Każdy plugin dostaje połowę — ale kolejność losowa (już jest, bo pickPlugins shuffluje)
-    $slotH = intdiv($usable, count($selected));
-
-    foreach ($selected as $i => $plugin) {
+    /**
+     * Pobiera dane pluginu od razu i opakowuje jego rysowanie w komponent.
+     * Błąd pojedynczego pluginu nie przerywa całego modułu — slot zostaje pusty.
+     */
+    private function pluginSlot(NewsPlugin $plugin): Component
+    {
         Console::plugin("Uruchamiam plugin: " . $plugin->getLabel());
-
-        $bounds = new Bounds(
-            x:      40,
-            y:      $headerH + $i * $slotH,
-            width:  WIDTH - 80,
-            height: $slotH,
-        );
 
         try {
             $data = $plugin->fetchData();
-
-            GdImageHelper::drawFrame($img, $bounds, 'Plugin: ' . $plugin->getLabel());
-
-            $plugin->draw($img, $data, $bounds);
         } catch (\Throwable $e) {
             Console::error("Plugin {$plugin->getLabel()} failed: " . $e->getMessage());
+            return new Spacer(0);
         }
+
+        return new Custom(function (GdImage $img, Bounds $bounds) use ($plugin, $data): int {
+            try {
+                $plugin->draw($img, $data, $bounds);
+            } catch (\Throwable $e) {
+                Console::error("Plugin {$plugin->getLabel()} failed: " . $e->getMessage());
+            }
+            return $bounds->height;
+        });
     }
-
-    GdImageHelper::centerText($img, 'Źródło: nie interesuj się', HEIGHT - 40, 24, '#445577', FONT);
-
-    [$path, $url] = GdImageHelper::saveImage($img, 'news', PUBLIC_DIR, PUBLIC_URL);
-    return StoryPayload::single($path, $url, $this->getLabel());
-} 
 
     private function pickPlugins(int $count): array
     {
@@ -88,6 +96,7 @@ class NewsModule implements StoryModule
 
         $keys = array_keys($this->availablePlugins);
         shuffle($keys); // deterministyczny shuffle dzięki seedowi
+        mt_srand(); // reset seeda, żeby nie wpłynąć na inne losowania w tym requeście
 
         return array_map(
             fn($k) => $this->availablePlugins[$k],

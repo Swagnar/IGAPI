@@ -10,6 +10,12 @@ use Swagnar\Igapi\Http\JsonClient;
 use Swagnar\Igapi\Helper\Console;
 use Swagnar\Igapi\Helper\GdImageHelper;
 
+use Swagnar\Igapi\Contracts\Bounds;
+use Swagnar\Igapi\Layout\Custom;
+use Swagnar\Igapi\Layout\Slide;
+use Swagnar\Igapi\Layout\Stack;
+use Swagnar\Igapi\Layout\Text;
+
 use RuntimeException;
 use GdImage;
 
@@ -25,6 +31,8 @@ class WeatherModule implements StoryModule {
         'Lublin'    => ['lat' => 51.25, 'lon' => 22.57],
         'Nysa'      => ['lat' => 50.48, 'lon' => 17.20],
     ];
+
+    private const MAP_SIZE = 760; // px, mapa jest kwadratowa
 
     public function __construct(
         private readonly JsonClient $http,
@@ -43,7 +51,7 @@ class WeatherModule implements StoryModule {
                     "https://api.open-meteo.com/v1/forecast?" .
                     "latitude={$coords['lat']}" .
                     "&longitude={$coords['lon']}" .
-                    "&hourly=temperature_2m,weathercode,windspeed_10m" .
+                    "&hourly=temperature_2m,relative_humidity_2m,weathercode,windspeed_10m" .
                     "&timezone=Europe/Warsaw"
                 );
                 $targetHour = date('Y-m-d') . 'T12:00';
@@ -62,6 +70,7 @@ class WeatherModule implements StoryModule {
                     'lat' => $coords['lat'],
                     'lon' => $coords['lon'],
                     'temp' => $data['hourly']['temperature_2m'][$index] ?? null,
+                    'humidity' => $data['hourly']['relative_humidity_2m'][$index] ?? null,
                     'windspeed' => $data['hourly']['windspeed_10m'][$index] ?? null,
                     'code' => $data['hourly']['weathercode'][$index] ?? null,
                 ];
@@ -76,139 +85,15 @@ class WeatherModule implements StoryModule {
         }
 
         $temps = array_filter(array_column($cities, 'temp'), fn($t) => $t !== null);
+        $humidities = array_filter(array_column($cities, 'humidity'), fn($h) => $h !== null);
+
         $medianTemp = $this->median($temps);
+        $medianHumidity = $this->median($humidities);
 
-        Console::info("Mediana temperatury: {$medianTemp}°C");
+        Console::info("Mediana temperatury: {$medianTemp}°C, mediana wilgotności: {$medianHumidity}%");
 
-        [$path, $url] = $this->generateWeatherMap($cities, $medianTemp);
+        [$path, $url] = $this->generateWeatherMap($cities, $medianTemp, $medianHumidity);
         return StoryPayload::single($path, $url, 'Pogoda');
-    }
-
-    private function generateWeatherMap(array $cities, float $medianTemp): array
-    {
-        $borderGeo = require ROOT_DIR . '/geo/poland-border.php';
-
-        if(!is_array($borderGeo)) {
-            throw new RuntimeException('Koordynaty granic Polski nie są tablicą');
-        }
-
-        $img = imagecreatetruecolor(WIDTH, HEIGHT);
-        imagealphablending($img, true);
-        imagesavealpha($img, true);
-
-        GdImageHelper::drawBackground($img);
-
-        $lonMin = 14.1; $lonMax = 24.2;
-        $latMin = 49.0; $latMax = 54.9;
-
-        $mapWidth  = 760;
-        $mapHeight = 760;
-        $offsetX   = 140;
-        $offsetY   = 580;
-
-        GdImageHelper::centerText($img, 'POLSKA',  150, HEADER_SIZE, '#ffffff', FONT_BOLD);
-        GdImageHelper::centerText($img, 'o 12:00', 200, 24,          '#ffffff', FONT);
-        
-        Console::info("Generuję mapę pogody dla Polski...");
-        $project = function(float $lat, float $lon) use ($lonMin, $lonMax, $latMin, $latMax, $mapWidth, $mapHeight, $offsetX, $offsetY): array {
-            $x = ($lon - $lonMin) / ($lonMax - $lonMin) * $mapWidth + $offsetX;
-            $y = ($latMax - $lat) / ($latMax - $latMin) * $mapHeight + $offsetY;
-            return [(int)round($x), (int)round($y)];
-        };
-
-        // Rysowanie granicy Polski
-        $borderPx = [];
-        foreach ($borderGeo as [$lat, $lon]) {
-            [$x, $y] = $project($lat, $lon);
-            $borderPx[] = $x;
-            $borderPx[] = $y;
-        }
-
-        $mask = imagecreatetruecolor(WIDTH, HEIGHT);
-        $maskBlack = imagecolorallocate($mask, 0, 0, 0);
-        // Tworzenie koloru białego w masce
-        $maskWhite = imagecolorallocate($mask, 255, 255, 255);
-        // Wypełnienie całego obrazu czarnym kolorem w masce
-        imagefill($mask, 0, 0, $maskBlack);
-        // Wypełnienie obszaru Polski białym kolorem w masce
-        imagefilledpolygon($mask, $borderPx, count($borderPx) / 2, $maskWhite);
-
-        $points = [];
-        foreach ($cities as $name => $city) {
-            if (!isset($city['lat'], $city['lon'], $city['temp']) || $city['temp'] === null) {
-                continue;
-            }
-
-            [$x, $y] = $project((float)$city['lat'], (float)$city['lon']);
-
-            $points[] = [
-                'name' => $name,
-                'lat' => (float)$city['lat'],
-                'lon' => (float)$city['lon'],
-                'x' => $x,
-                'y' => $y,
-                'temp' => (float)$city['temp'],
-            ];
-        }
-
-        // Interpolacja temperatury dla każdego piksela na mapie
-        if ($points) {
-            for ($y = $offsetY; $y <= $offsetY + $mapHeight; $y++) {
-                for ($x = $offsetX; $x <= $offsetX + $mapWidth; $x++) {
-                    // Pomija piksele poza granicami Polski (sprawdza kanał alfa maski - wartość < 200 oznacza czarny kolor = poza Polską)
-                    if ((imagecolorat($mask, $x, $y) & 0xFF) < 200) {
-                        continue;
-                    }
-
-                    $temp = $this->idwTemp($x, $y, $points);
-                    [$r, $g, $b, $alpha] = $this->tempGradientColor($temp);
-
-                    $color = imagecolorallocatealpha($img, $r, $g, $b, $alpha);
-                    imagesetpixel($img, $x, $y, $color);
-                }
-            }
-        }
-
-        $borderColor = imagecolorallocate($img, 230, 230, 230);
-        imagesetthickness($img, 2);
-        imagepolygon($img, $borderPx, count($borderPx) / 2, $borderColor);
-        imagesetthickness($img, 1);
-
-        Console::info("Rysuję punkty miast i temperatury...");
-        foreach ($points as $p) {
-            $dot = imagecolorallocate($img, 255, 255, 255);
-            imagefilledellipse($img, $p['x'], $p['y'], 8, 8, $dot);
-
-            $text = sprintf('%s %.0f°C', $p['name'], $p['temp']);
-
-            GdImageHelper::drawText($img, $text, $p['x'] + 12, $p['y'] - 10, 22, $this->tempLabelColor($p['temp']), FONT);
-        }
-
-        $avgColor = $this->gdHex($img, $this->tempLabelColor($medianTemp));
-        $white = imagecolorallocate($img, 255, 255, 255);
-        $gray = imagecolorallocate($img, 136, 136, 136);
-
-        $mood = $this->randomWeatherMood($medianTemp);
-
-        imagettftext($img, 48, 0, 80, 1780, $white, FONT, sprintf('Mediana: %.1f°C', $medianTemp));
-        imagettftext($img, 36, 0, 80, 1840, $avgColor, FONT, $mood);
-        imagettftext($img, 22, 0, 80, 1890, $gray, FONT, 'Źródło: Open-Meteo');
-
-        if (!is_dir(PUBLIC_DIR)) {
-            mkdir(PUBLIC_DIR, 0775, true);
-        }
-
-        $filename = 'weather-map-' . date('Ymd-His') . '.png';
-        $path = rtrim(PUBLIC_DIR, '/') . '/' . $filename;
-        $url = rtrim(PUBLIC_URL, '/') . '/' . $filename;
-
-        imagepng($img, $path, 6);
-        imagedestroy($img);
-        imagedestroy($mask);
-
-        Console::success("Zapisano obraz: " . $path);
-
-        return [$path, $url];
     }
 
     private function idwTemp(int $x, int $y, array $points, float $power = 2.0): float
@@ -281,35 +166,23 @@ class WeatherModule implements StoryModule {
             $temp >= 20 => '#88dd00',
             $temp >= 15 => '#44bbff',
             $temp >= 10 => '#4488ff',
-            default     => '#aaddff',
+            default   => '#aaddff',
         };
     }
 
-    private function randomWeatherMood(float $avg): string
+    private function randomWeatherMood(float $temp): string
     {
         $moods = match (true) {
-            $avg >= 30 => ['Lampa jak chuj', 'Lampa jak skurwysyn'],
-            $avg >= 25 => ['Prawie lampa', 'Damy radę'],
-            $avg >= 20 => ['Idealnie', 'Entropia osiągnięta', 'Zostań tak na zawsze'],
-            $avg >= 15 => ['Ni to dobrze ni to źle', 'Tak se bym powiedział'],
-            $avg >= 10 => ['Lekka pizgawica', 'Jeszcze jakoś ujdzie', 'Piździ jak w Kieleckim'],
-            $avg >= 5  => ['Większa pizgawica'],
-            default    => ['Oho, umieramy', 'Jedziemy na sanki?'],
+            $temp >= 30 => ['Lampa jak chuj', 'Lampa jak skurwysyn'],
+            $temp >= 25 => ['Prawie lampa', 'Damy radę'],
+            $temp >= 20 => ['Idealnie', 'Entropia osiągnięta', 'Zostań tak na zawsze'],
+            $temp >= 15 => ['Ni to dobrze ni to źle', 'Tak se bym powiedział'],
+            $temp >= 10 => ['Lekka pizgawica', 'Jeszcze jakoś ujdzie', 'Piździ jak w Kieleckim'],
+            $temp >= 5  => ['Większa pizgawica'],
+            default    => ['Oho, umieramy', 'Sanki?'],
         };
 
         return $moods[array_rand($moods)];
-    }
-
-    private function gdHex(GdImage $img, string $hex): int
-    {
-        $hex = ltrim($hex, '#');
-
-        return imagecolorallocate(
-            $img,
-            hexdec(substr($hex, 0, 2)),
-            hexdec(substr($hex, 2, 2)),
-            hexdec(substr($hex, 4, 2))
-        );
     }
 
     private function median(array $values): ?float
@@ -330,5 +203,146 @@ class WeatherModule implements StoryModule {
 
         // nieparzysta liczba elementów — środkowy element
         return round($values[$middle], 1);
+    }
+
+    private function heatIndex(float $temp, ?float $humidity): float
+    {
+        if ($humidity === null || $temp < 20) {
+            return $temp;
+        }
+
+        $humidityFactor = ($humidity - 40) / 100; // >0 gdy wilgotność powyżej 40%
+        $bonus = max(0, $humidityFactor) * ($temp - 20) * 0.6;
+
+        return $temp + $bonus;
+    }
+
+    private function generateWeatherMap(array $cities, float $medianTemp, ?float $medianHumidity): array
+    {
+        $borderGeo = require ROOT_DIR . '/geo/poland-border.php';
+
+        if(!is_array($borderGeo)) {
+            throw new RuntimeException('Koordynaty granic Polski nie są tablicą');
+        }
+
+        $medianLine = sprintf('Mediana: %.1f°C', $medianTemp);
+        if ($medianHumidity !== null) {
+            $medianLine .= sprintf(' / wilg. %.0f%%', $medianHumidity);
+        }
+
+        $footer = (new Stack())
+            ->add(new Text($medianLine, size: 48, color: '#FFFFFF', font: FONT, indent: 40, height: 60))
+            ->add(new Text($this->randomWeatherMood($medianTemp), size: 36, color: $this->tempLabelColor($medianTemp), font: FONT, indent: 40, height: 60))
+            ->add(new Text('Źródło: Open-Meteo', size: 22, color: '#888888', font: FONT, indent: 40, height: 50));
+
+        if ($medianHumidity !== null) {
+            $medianHi = $this->heatIndex($medianTemp, $medianHumidity);
+            $footer->add(new Text(sprintf('heat index: %.1f°C', $medianHi), size: 14, color: '#888888', font: FONT, indent: 40, height: 26));
+        }
+
+        Console::info("Generuję mapę pogody dla Polski...");
+        $slide = new Slide('POLSKA', 'o 12:00', footer: $footer, footerHeight: 200);
+        $slide->render(new Custom(fn(GdImage $img, Bounds $bounds) => $this->drawMap($img, $bounds, $cities, $borderGeo)));
+        [$path, $url] = $slide->save('weather-map');
+
+        Console::success("Zapisano obraz: " . $path);
+
+        return [$path, $url];
+    }
+
+    /** Mapa cieplna Polski (interpolacja IDW) z punktami miast, wycentrowana w bounds. */
+    private function drawMap(GdImage $img, Bounds $bounds, array $cities, array $borderGeo): int
+    {
+        $lonMin = 14.1; $lonMax = 24.2;
+        $latMin = 49.0; $latMax = 54.9;
+
+        $mapWidth  = self::MAP_SIZE;
+        $mapHeight = self::MAP_SIZE;
+        $offsetX   = $bounds->centerX() - intdiv($mapWidth, 2);
+        $offsetY   = $bounds->y + intdiv($bounds->height - $mapHeight, 2);
+
+        $project = function(float $lat, float $lon) use ($lonMin, $lonMax, $latMin, $latMax, $mapWidth, $mapHeight, $offsetX, $offsetY): array {
+            $x = ($lon - $lonMin) / ($lonMax - $lonMin) * $mapWidth + $offsetX;
+            $y = ($latMax - $lat) / ($latMax - $latMin) * $mapHeight + $offsetY;
+            return [(int)round($x), (int)round($y)];
+        };
+
+        // Rysowanie granicy Polski
+        $borderPx = [];
+        foreach ($borderGeo as [$lat, $lon]) {
+            [$x, $y] = $project($lat, $lon);
+            $borderPx[] = $x;
+            $borderPx[] = $y;
+        }
+
+        $mask = imagecreatetruecolor(WIDTH, HEIGHT);
+        $maskBlack = imagecolorallocate($mask, 0, 0, 0);
+        // Tworzenie koloru białego w masce
+        $maskWhite = imagecolorallocate($mask, 255, 255, 255);
+        // Wypełnienie całego obrazu czarnym kolorem w masce
+        imagefill($mask, 0, 0, $maskBlack);
+        // Wypełnienie obszaru Polski białym kolorem w masce
+        imagefilledpolygon($mask, $borderPx, count($borderPx) / 2, $maskWhite);
+
+        $points = [];
+        foreach ($cities as $name => $city) {
+            if (!isset($city['lat'], $city['lon'], $city['temp']) || $city['temp'] === null) {
+                continue;
+            }
+
+            [$x, $y] = $project((float)$city['lat'], (float)$city['lon']);
+
+            $points[] = [
+                'name' => $name,
+                'lat' => (float)$city['lat'],
+                'lon' => (float)$city['lon'],
+                'x' => $x,
+                'y' => $y,
+                'temp' => (float)$city['temp'],
+                'humidity' => isset($city['humidity']) ? (float)$city['humidity'] : null,
+            ];
+        }
+
+        // Interpolacja temperatury dla każdego piksela na mapie
+        if ($points) {
+            for ($y = $offsetY; $y <= $offsetY + $mapHeight; $y++) {
+                for ($x = $offsetX; $x <= $offsetX + $mapWidth; $x++) {
+                    // Pomija piksele poza granicami Polski (sprawdza kanał alfa maski - wartość < 200 oznacza czarny kolor = poza Polską)
+                    if ((imagecolorat($mask, $x, $y) & 0xFF) < 200) {
+                        continue;
+                    }
+
+                    $temp = $this->idwTemp($x, $y, $points);
+                    [$r, $g, $b, $alpha] = $this->tempGradientColor($temp);
+
+                    $color = imagecolorallocatealpha($img, $r, $g, $b, $alpha);
+                    imagesetpixel($img, $x, $y, $color);
+                }
+            }
+        }
+        imagedestroy($mask);
+
+        $borderColor = imagecolorallocate($img, 230, 230, 230);
+        imagesetthickness($img, 2);
+        imagepolygon($img, $borderPx, count($borderPx) / 2, $borderColor);
+        imagesetthickness($img, 1);
+
+        Console::info("Rysuję punkty miast i temperatury...");
+        foreach ($points as $p) {
+            $dot = imagecolorallocate($img, 255, 255, 255);
+            imagefilledellipse($img, $p['x'], $p['y'], 8, 8, $dot);
+
+            $hi = $this->heatIndex($p['temp'], $p['humidity']);
+
+            if ($p['humidity'] !== null) {
+                $humidityText = sprintf('%.0f%%', $p['humidity']);
+                GdImageHelper::drawText($img, $humidityText, $p['x'] + 12, $p['y'] - 34, 16, '#7FA8C9', FONT);
+            }
+
+            $text = sprintf('%s %.0f°C', $p['name'], $p['temp']);
+            GdImageHelper::drawText($img, $text, $p['x'] + 12, $p['y'] - 10, 22, $this->tempLabelColor($hi), FONT);
+        }
+
+        return $bounds->height;
     }
 }

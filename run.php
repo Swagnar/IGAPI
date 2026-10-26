@@ -12,9 +12,6 @@ define('OFFSET_Y', 150);
 define('FONT', __DIR__ . '/Inter-Regular.ttf');
 define('FONT_BOLD', __DIR__ . '/Inter-Bold.ttf');
 
-
-
-// Ustawienie na true pozwala na testowanie lokalnych plików i wyświetlanie obrazków bezpośrednio z dysku
 define('DEBUG', true);
 
 use Swagnar\Igapi\Http\JsonClient;
@@ -43,6 +40,7 @@ if (DEBUG) {
 
 if(!file_exists(FONT)) throw new RuntimeException("Brak fontu: " . FONT);
 if(!file_exists(FONT_BOLD)) throw new RuntimeException("Brak fontu: " . FONT_BOLD);
+if(!is_dir(PUBLIC_DIR) || !is_writable(PUBLIC_DIR)) throw new RuntimeException("Brak katalogu lub brak praw zapisu: " . PUBLIC_DIR);
 
 Console::write('', Console::WHITE,"
   ██╗ ██████╗      █████╗ ██████╗ ██╗
@@ -67,11 +65,11 @@ $publisher = new InstagramPublisher(
 
 // Rejestracja modułów
 $modules = [
-    // new PalestineModule($http),
+    new PalestineModule($http),
     new NewsModule($http),
-    // new MarsModule($http),
-    // new WeatherModule($http),
-    // new RemembranceModule($http),
+    new MarsModule($http),
+    new WeatherModule($http),
+    new RemembranceModule($http),
 ];
 
 Console::boot("Uruchamianie runnera");
