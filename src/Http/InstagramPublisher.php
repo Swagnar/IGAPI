@@ -10,10 +10,14 @@ class InstagramPublisher
 {
     private const BASE_URL = 'https://graph.facebook.com/v25.0/';
 
+    private const EXPIRY_WARNING_DAYS = 14;
+
     public function __construct(
         private readonly string $accessToken,
         private readonly string $igUserId,
         private readonly JsonClient $http,
+        private readonly ?string $appId = null,
+        private readonly ?string $appSecret = null,
     ) {}
 
     public function publish(string $imageUrl): void {
@@ -93,30 +97,76 @@ class InstagramPublisher
         return false;
     }
 
+    /**
+     * Sprawdza token przed publikacją. Z APP_ID/APP_SECRET używa debug_token, który zwraca też datę wygaśnięcia
+     * (0 = token nie wygasa — tak jest dla tokenu strony wygenerowanego przez token.php).
+     * Bez nich — tylko proste zapytanie /me (ważny / nieważny).
+     *
+     * Wygasłego tokenu nie da się odnowić przez API — trzeba wygenerować nowy: php token.php <krótki_token>
+     *
+     * @return array{valid: bool, message: ?string, expiresAt: ?int}
+     */
     public function checkTokenStatus(): array
     {
-        $ch = curl_init(self::BASE_URL . "me?fields=id&access_token={$this->accessToken}");
+        if ($this->appId && $this->appSecret) {
+            return $this->debugToken();
+        }
+
+        $response = $this->graphGet("me?fields=id&access_token={$this->accessToken}");
+        if (isset($response['id'])) {
+            return ['valid' => true, 'message' => null, 'expiresAt' => null];
+        }
+
+        return ['valid' => false, 'message' => $response['error']['message'] ?? 'Nieznany błąd walidacji tokenu', 'expiresAt' => null];
+    }
+
+    private function debugToken(): array
+    {
+        $response = $this->graphGet('debug_token?' . http_build_query([
+            'input_token'  => $this->accessToken,
+            'access_token' => "{$this->appId}|{$this->appSecret}",
+        ]));
+        $data = $response['data'] ?? null;
+
+        if ($data === null) {
+            return ['valid' => false, 'message' => $response['error']['message'] ?? 'Nieznany błąd debug_token', 'expiresAt' => null];
+        }
+        if (!($data['is_valid'] ?? false)) {
+            return ['valid' => false, 'message' => $data['error']['message'] ?? 'Token jest nieważny', 'expiresAt' => $data['expires_at'] ?? null];
+        }
+
+        $expiresAt = (int)($data['expires_at'] ?? 0);
+        $type      = $data['type'] ?? '?';
+
+        if ($expiresAt === 0) {
+            Console::info("Token Meta ({$type}) nie ma daty wygaśnięcia.");
+        } else {
+            $daysLeft = (int) floor(($expiresAt - time()) / 86400);
+            $message  = "Token Meta ({$type}) wygasa " . date('Y-m-d H:i', $expiresAt) . " (za {$daysLeft} dni).";
+            $daysLeft <= self::EXPIRY_WARNING_DAYS
+                ? Console::warn($message . ' Wygeneruj token strony bez daty wygaśnięcia: php token.php <krótki_token>')
+                : Console::info($message);
+        }
+
+        return ['valid' => true, 'message' => null, 'expiresAt' => $expiresAt];
+    }
+
+    private function graphGet(string $path): array
+    {
+        $ch = curl_init(self::BASE_URL . $path);
         curl_setopt_array($ch, [
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_TIMEOUT        => 15,
         ]);
 
         $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlErr  = curl_error($ch);
         curl_close($ch);
 
         if ($response === false) {
-            return ['valid' => false, 'message' => "Błąd połączenia: {$curlErr}"];
+            return ['error' => ['message' => "Błąd połączenia: {$curlErr}"]];
         }
 
-        $data = json_decode($response, true);
-
-        if ($httpCode === 200 && isset($data['id'])) {
-            return ['valid' => true, 'message' => null];
-        }
-
-        $message = $data['error']['message'] ?? "Nieznany błąd walidacji tokenu (HTTP {$httpCode})";
-        return ['valid' => false, 'message' => $message];
+        return json_decode($response, true) ?? ['error' => ['message' => "Nieprawidłowa odpowiedź Meta: {$response}"]];
     }
 }

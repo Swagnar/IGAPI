@@ -18,4 +18,10 @@ abstract class AbstractPlugin implements NewsPlugin
     {
         $this->content($data)->render($img, $bounds);
     }
+
+    /** Treść pluginu jako komponent — do osadzenia w layoucie modułu (np. w Stack), a nie w stałym slocie. */
+    final public function component(array $data): Component
+    {
+        return $this->content($data);
+    }
 }

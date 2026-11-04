@@ -50,15 +50,26 @@ class BitcoinPlugin extends AbstractPlugin
         $priceStr = $data['price'] !== null ? '$' . number_format((float)$data['price'], 0, ',', ' ') : 'N/A';
         $points   = array_map(fn($p) => ['x' => $p['ts'], 'y' => $p['price']], $data['history']);
 
-        return (new Stack())
-            ->add(new Text('₿  Bitcoin', size: 20, color: '#8899CC', font: FONT, height: 41))
-            ->add(new Text($priceStr, size: 67, color: '#FFFFFF', font: FONT_BOLD, align: 'center', height: 60))
-            ->add(new Spacer(9))
-            // Wykres dostaje resztę bounds
+        $stack = (new Stack())
+            ->add(new Spacer(30))
+            ->add(new Text('₿  Bitcoin', size: 24, color: '#8899CC', font: FONT, height: 40))
+            ->add(new Text($priceStr, size: 48, color: '#FFFFFF', font: FONT_BOLD, height: 70));
+
+        if ($data['change'] !== null) {
+            $change = (float)$data['change'];
+            $stack->add(new Text(
+                sprintf('%s%s%% w ciągu 24h', $change >= 0 ? '+' : '', number_format($change, 1, ',', '')),
+                size: 22, color: $change >= 0 ? '#34D399' : '#F87171', font: FONT, height: 36,
+            ));
+        }
+
+        return $stack
+            ->add(new Spacer(30))
+            // Wykres dostaje resztę bounds — cała zebrana historia, od pierwszego wpisu w pliku
             ->add(new LineChart(
                 $points,
                 formatY:   fn(float $price) => '$' . number_format($price, 0, ',', ' '),
-                formatX:   fn(int $ts) => date('d.m H:i', $ts),
+                formatX:   fn(int $ts) => date('d.m.Y', $ts),
                 emptyText: 'Brak danych historycznych',
             ));
     }
@@ -118,13 +129,12 @@ class BitcoinPlugin extends AbstractPlugin
         Console::info("BitcoinPlugin: dopisano wpis: $line");
     }
 
-    private function loadHistory(int $maxPoints = 72): array
+    private function loadHistory(): array
     {
         $file = self::BTC_FILE;
         if (!file_exists($file)) return [];
 
         $lines  = array_filter(array_map('trim', file($file)));
-        $lines  = array_values(array_slice($lines, -$maxPoints));
 
         $points = [];
         foreach ($lines as $line) {

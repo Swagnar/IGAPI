@@ -6,6 +6,7 @@ use Swagnar\Igapi\Contracts\StoryModule;
 use Swagnar\Igapi\Contracts\StoryPayload;
 use Swagnar\Igapi\Helper\Console;
 use Swagnar\Igapi\Helper\GdImageHelper;
+use Swagnar\Igapi\Plugins\AsteroidsPlugin;
 use Swagnar\Igapi\Layout\Component;
 use Swagnar\Igapi\Layout\Photo;
 use Swagnar\Igapi\Layout\Separator;
@@ -17,11 +18,16 @@ use Swagnar\Igapi\Layout\WrappedText;
 use DateTimeImmutable;
 use RuntimeException;
 
-class MarsModule implements StoryModule
+class KosmosModule implements StoryModule
 {
-    public function __construct(private readonly JsonClient $http) {}
+    private readonly AsteroidsPlugin $asteroids;
 
-    public function getLabel(): string { return 'Mars'; }
+    public function __construct(private readonly JsonClient $http)
+    {
+        $this->asteroids = new AsteroidsPlugin($http);
+    }
+
+    public function getLabel(): string { return 'Kosmos'; }
 
     // ============================================================
     // POGODA
@@ -201,32 +207,38 @@ class MarsModule implements StoryModule
 
     public function run(): StoryPayload
     {
-        $body = new Stack();
+        $body = (new Stack())->add(new Spacer(30));
 
-        // --- Pogoda ---
+        // --- Mars: pogoda + status misji ---
         try {
             $body->add($this->weatherSection($this->fetchWeather()));
-            $body->add(new Separator(marginTop: 25, marginBottom: 30));
         } catch (\Throwable $e) {
             Console::error("Pogoda Mars failed: " . $e->getMessage());
         }
-
-        // --- Status misji ---
         $body->add($this->missionSection($this->computeMissionStatus()));
         $body->add(new Separator(marginTop: 25, marginBottom: 30));
 
-        // --- Zdjęcie ---
+        // --- Asteroidy ---
         try {
-            $body->add($this->photoSection($this->fetchRandomPhoto()));
+            $body->add($this->asteroids->component($this->asteroids->fetchData()));
             $body->add(new Separator(marginTop: 25, marginBottom: 30));
         } catch (\Throwable $e) {
-            Console::error("Zdjęcie Curiosity failed: " . $e->getMessage());
+            Console::error("Asteroidy failed: " . $e->getMessage());
         }
 
         $body->add($this->flatEarthSection($this->pickDailyFlatEarthFact()));
 
-        $slide = new Slide('MARS', footer: Slide::source('Źródło: NASA JPL / CAB'));
-        [$path, $url] = $slide->render($body)->save('mars');
+        // --- Zdjęcie na końcu — Photo dopasowuje się do miejsca, które zostało do stopki ---
+        try {
+            $photo = $this->fetchRandomPhoto();
+            $body->add(new Separator(marginTop: 25, marginBottom: 30));
+            $body->add($this->photoSection($photo));
+        } catch (\Throwable $e) {
+            Console::error("Zdjęcie Curiosity failed: " . $e->getMessage());
+        }
+
+        $slide = new Slide('KOSMOS', footer: Slide::source('Źródło: NASA JPL / NeoWs / CAB'));
+        [$path, $url] = $slide->render($body)->save('kosmos');
 
         return StoryPayload::single($path, $url, $this->getLabel());
     }
@@ -239,8 +251,8 @@ class MarsModule implements StoryModule
         $uv  = $this->translateUvIndex($sol['local_uv_irradiance_index'] ?? 'Unknown');
 
         return (new Stack())
-            ->add(new Text('Pogoda w kraterze Gale', size: 28, color: '#FFFFFF', font: FONT_BOLD, align: 'center', height: 34, marginTop: 14))
-            ->add(new Text("Sol {$sol['sol']} · " . $this->describeMeasurementAge($sol['terrestrial_date'] ?? ''), size: 20, color: '#AAAAAA', font: FONT, align: 'center', height: 40))
+            ->add(new Text('Mars — pogoda w kraterze Gale', size: 28, color: '#FFFFFF', font: FONT_BOLD, height: 40))
+            ->add(new Text("Sol {$sol['sol']} · " . $this->describeMeasurementAge($sol['terrestrial_date'] ?? ''), size: 20, color: '#AAAAAA', font: FONT, height: 36))
             ->add(new Text("Temperatura: {$min}°C do {$max}°C", size: 32, color: '#88CCFF', font: FONT_BOLD, height: 55))
             ->add(new Text('Ciśnienie: ' . $this->valueOrDash($sol['pressure'] ?? null) . ' Pa', size: 22, color: '#AAAAAA', font: FONT, height: 38))
             ->add(new Text("Niebo: {$sky} — UV: {$uv}", size: 22, color: '#AAAAAA', font: FONT, height: 34));
@@ -248,10 +260,10 @@ class MarsModule implements StoryModule
 
     private function missionSection(array $status): Component
     {
-        return (new Stack())
-            ->add(new Text('Curiosity — status: aktywny', size: 28, color: '#FFFFFF', font: FONT_BOLD, height: 40))
-            ->add(new Text("{$status['days_active']} dni na Marsie (lądowanie 2012-08-06)", size: 22, color: '#AAAAAA', font: FONT, height: 38))
-            ->add(new Text("Przybliżony sol misji: ~{$status['approx_sol']}", size: 22, color: '#AAAAAA', font: FONT, height: 32));
+        return new Text(
+            "Curiosity: {$status['days_active']} dni na Marsie (~sol {$status['approx_sol']} misji)",
+            size: 22, color: '#AAAAAA', font: FONT, height: 38,
+        );
     }
 
     private function photoSection(array $photo): Component
@@ -265,11 +277,10 @@ class MarsModule implements StoryModule
         }
 
         return (new Stack())
-            ->add(new Text('Zdjęcie dnia:', size: 28, color: '#FFFFFF', font: FONT_BOLD, height: 72))
+            ->add(new Text('Zdjęcie dnia z Curiosity', size: 28, color: '#FFFFFF', font: FONT_BOLD, height: 60))
             ->add(new Photo(
                 $photo['preview'],
                 caption:      $caption,
-                maxHeight:    440,
                 captionSize:  20,
                 captionColor: '#AAAAAA',
                 captionFont:  FONT,

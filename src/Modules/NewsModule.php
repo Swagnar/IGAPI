@@ -10,7 +10,6 @@ use Swagnar\Igapi\Contracts\Bounds;
 
 use Swagnar\Igapi\Plugins\BitcoinPlugin;
 use Swagnar\Igapi\Plugins\PopulationPlugin;
-use Swagnar\Igapi\Plugins\AsteroidsPlugin;
 use Swagnar\Igapi\Plugins\DisasterPlugin;
 
 use Swagnar\Igapi\Layout\Component;
@@ -36,8 +35,7 @@ class NewsModule implements StoryModule
     {
         $this->availablePlugins = [
             new BitcoinPlugin($http),
-            // new PopulationPlugin($http),
-            new AsteroidsPlugin($http),
+            new PopulationPlugin($http),
             // new DisasterPlugin($http),
         ];
     }

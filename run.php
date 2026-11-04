@@ -12,7 +12,8 @@ define('OFFSET_Y', 150);
 define('FONT', __DIR__ . '/Inter-Regular.ttf');
 define('FONT_BOLD', __DIR__ . '/Inter-Bold.ttf');
 
-define('DEBUG', true);
+// Produkcja wymaga jawnego DEBUG=false w .env — brak wpisu = tryb debug, żeby lokalny run niczego nie opublikował
+define('DEBUG', filter_var($_ENV['DEBUG'] ?? true, FILTER_VALIDATE_BOOLEAN));
 
 use Swagnar\Igapi\Http\JsonClient;
 use Swagnar\Igapi\Http\InstagramPublisher;
@@ -21,7 +22,7 @@ use Swagnar\Igapi\Modules\PalestineModule;
 use Swagnar\Igapi\Modules\NewsModule;
 use Swagnar\Igapi\Modules\RemembranceModule;
 use Swagnar\Igapi\Modules\WeatherModule;
-use Swagnar\Igapi\Modules\MarsModule;
+use Swagnar\Igapi\Modules\KosmosModule;
 
 use Swagnar\Igapi\Helper\Console;
 
@@ -34,8 +35,9 @@ if (DEBUG) {
     define('PUBLIC_URL', __DIR__ . '/ig-stories');
     Console::debug("DEBUG MODE: Pamiętaj aby zmienić przed wdrożeniem na produkcję.");
 } else {
-    define('PUBLIC_DIR', ROOT_DIR . '/../swagnar.dev/ig-stories');
-    define('PUBLIC_URL', 'https://swagnar.dev/ig-stories');
+    // Katalog musi leżeć w document root domeny z PUBLIC_URL — Instagram pobiera obrazki po URL-u
+    define('PUBLIC_DIR', $_ENV['PUBLIC_DIR'] ?? ROOT_DIR . '/../swagnar.dev/ig-stories');
+    define('PUBLIC_URL', $_ENV['PUBLIC_URL'] ?? 'https://swagnar.dev/ig-stories');
 }
 
 if(!file_exists(FONT)) throw new RuntimeException("Brak fontu: " . FONT);
@@ -59,7 +61,9 @@ $http = new JsonClient();
 $publisher = new InstagramPublisher(
     accessToken: $_ENV['PAGE_ACCESS_TOKEN'],
     igUserId: $_ENV['IG_ID'],
-    http: $http
+    http: $http,
+    appId: $_ENV['APP_ID'] ?? null,
+    appSecret: $_ENV['APP_SECRET'] ?? null,
 );
 
 
@@ -67,7 +71,7 @@ $publisher = new InstagramPublisher(
 $modules = [
     new PalestineModule($http),
     new NewsModule($http),
-    new MarsModule($http),
+    new KosmosModule($http),
     new WeatherModule($http),
     new RemembranceModule($http),
 ];

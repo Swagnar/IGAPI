@@ -17,17 +17,20 @@ class StoryRunner
     ){}
 
     public function run(): void {
-        if (!DEBUG) {
+        $publish = !DEBUG;
+
+        if ($publish) {
             $tokenStatus = $this->publisher->checkTokenStatus();
 
             if (!$tokenStatus['valid']) {
+                // Moduły i tak uruchamiamy — obrazki i historia (np. btc_data.txt) nie mogą mieć dziur przez token
                 Console::fatal("Token dostępu Meta jest nieprawidłowy/wygasły: " . $tokenStatus['message']);
-                Console::fatal("Pomijam wszystkie moduły — publikacja i tak by się nie powiodła.");
+                Console::fatal("Generuję slajdy, ale pomijam publikację. Nowy token: php token.php <krótki_token>");
                 $this->saveTokenExpiredAlert($tokenStatus['message']);
-                return;
+                $publish = false;
+            } else {
+                Console::success("Token dostępu Meta jest ważny.");
             }
-
-            Console::success("Token dostępu Meta jest ważny.");
         }
 
         foreach($this->modules as $module) {
@@ -43,7 +46,7 @@ class StoryRunner
                 continue;
             }
             foreach($payload->slides as $slide) {
-                if(!DEBUG) {
+                if($publish) {
                     try {
                         Console::module("Moduł " . $module->getLabel() . " rozpoczyna publikowanie.");
                         $this->publisher->publish($slide['url']);

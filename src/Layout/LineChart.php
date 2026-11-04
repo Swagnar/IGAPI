@@ -65,12 +65,20 @@ final class LineChart implements Component
             (int)($y0 + $h - ($p['y'] - $minY) / $rangeY * $h),
         ], $this->points);
 
-        // Zanikające pionowe "wypełnienie" pod każdym punktem
+        // Zanikające wypełnienie pod linią — kolumna po kolumnie, z y interpolowanym między punktami
         $bottom = $y0 + $h;
-        foreach ($pts as [$px, $py]) {
-            for ($fy = $py; $fy <= $bottom; $fy++) {
-                $alpha = (int)(100 + 27 * ($fy - $py) / max(1, $bottom - $py));
-                imagesetpixel($img, $px, $fy, imagecolorallocatealpha($img, $r, $g, $b, $alpha));
+        $fill   = [];
+        for ($a = 100; $a <= 127; $a++) {
+            $fill[$a] = imagecolorallocatealpha($img, $r, $g, $b, $a);
+        }
+        for ($i = 0; $i < $n - 1; $i++) {
+            [$ax, $ay] = $pts[$i];
+            [$bx, $by] = $pts[$i + 1];
+            for ($px = $ax; $px < $bx || ($i === $n - 2 && $px === $bx); $px++) {
+                $py = (int)($ay + ($by - $ay) * ($px - $ax) / max(1, $bx - $ax));
+                for ($fy = $py; $fy <= $bottom; $fy++) {
+                    imagesetpixel($img, $px, $fy, $fill[(int)(100 + 27 * ($fy - $py) / max(1, $bottom - $py))]);
+                }
             }
         }
 
