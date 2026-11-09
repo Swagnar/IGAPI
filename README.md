@@ -9,29 +9,36 @@
   ╚═╝ ╚═════╝     ╚═╝  ╚═╝╚═╝     ╚═╝
 ```
 
-Narzędzie CLI do automatycznego generowania i publikowania Story na Instagramie. Modułowa architektura pozwala na łatwe dodawanie nowych typów treści, a system pluginów wewnątrz `NewsModule` pozwala łączyć wiele niezależnych źródeł danych na jednym slajdzie. Każdy moduł generuje obrazek i publikuje go przez Meta Graph API.
+Narzędzie CLI, które codziennie generuje zestaw Story (1080×1920 px) z danych z publicznych API i publikuje je na Instagramie przez Meta Graph API. Każdy slajd to osobny moduł (`StoryModule`), a slajd **ŚWIAT** łączy kilka niezależnych pluginów (`NewsPlugin`) na jednej planszy.
+
+| Slajd | Moduł | Co pokazuje |
+|---|---|---|
+| **GAZA** | `PalestineModule` | Dzienny raport ofiar z Tech for Palestine |
+| **ŚWIAT** | `NewsModule` | Historia ceny Bitcoina + populacja świata |
+| **KOSMOS** | `KosmosModule` | Wczorajsze asteroidy, fakt dla płaskoziemców, zdjęcie z Curiosity |
+| **POLSKA** | `WeatherModule` | Mapa cieplna Polski z temperaturą i wilgotnością w 9 miastach |
 
 ---
 
 ## Funkcje
 
-- Automatyczne generowanie grafik Story (1080×1920 px) z użyciem GD
+- Generowanie grafik GD z komponentów layoutu (`Stack`, `VerticalSplit`, `Photo`, wykresy…) zamiast ręcznie liczonych współrzędnych
 - Publikacja przez Meta Graph API (z oczekiwaniem na gotowość kontenera)
-- Modułowa struktura (`StoryModule`) + system pluginów (`NewsPlugin`) do łączenia wielu źródeł danych na jednym slajdzie
-- Deterministyczny, dzienny losowy dobór treści
-- Tryb `DEBUG` do lokalnego testowania bez publikacji
-- Tłumaczenie tekstów (np. opisów zdjęć NASA) na polski przez Google Translate
+- Sprawdzanie tokenu Meta przed każdym uruchomieniem — z datą wygaśnięcia i ostrzeżeniem z wyprzedzeniem
+- Przy nieważnym tokenie slajdy i historia (np. ceny BTC) nadal się generują — pomijana jest tylko publikacja
+- Deterministyczny, dzienny dobór treści (seed = data) — kilka uruchomień tego samego dnia daje to samo
+- Tryb `DEBUG` do lokalnego testowania bez publikacji (domyślny, gdy `.env` nie mówi inaczej)
+- Tłumaczenie opisów zdjęć NASA na polski
+- `deploy.sh` — jedno polecenie do wdrożenia na hosting
 
 ---
 
 ## Wymagania
 
-- PHP 8.1+
-- Rozszerzenia PHP: `gd`, `curl`
+- PHP 8.1+ z rozszerzeniami `gd`, `curl`, `mbstring`
 - Composer
-- Fonty `Inter-Regular.ttf` i `Inter-Bold.ttf` w katalogu głównym projektu
-- Konto Instagram Business + aplikacja Meta z tokenem dostępu
-- Klucz API NASA (dla `AsteroidsPlugin`, `DisasterPlugin`, `MarsModule`)
+- Konto Instagram Business podpięte do strony na Facebooku + aplikacja Meta
+- Klucz API NASA ([api.nasa.gov](https://api.nasa.gov/)) — dla asteroid w `KosmosModule`
 
 ---
 
@@ -39,18 +46,21 @@ Narzędzie CLI do automatycznego generowania i publikowania Story na Instagramie
 
 ```bash
 git clone https://github.com/Swagnar/IGAPI.git
-cd igapi
+cd IGAPI
 composer install
 cp .env.example .env
 ```
 
-Uzupełnij plik `.env`:
+### Konfiguracja `.env`
 
-```env
-PAGE_ACCESS_TOKEN=twoj_token_dostepu
-IG_ID=twoje_ig_user_id
-NASA_API_KEY=twoj_klucz_nasa
-```
+| Klucz | Wymagany | Opis |
+|---|---|---|
+| `IG_ID` | tak | ID konta Instagram Business |
+| `PAGE_ACCESS_TOKEN` | tak | Token strony — wygeneruj przez `token.php` (patrz niżej) |
+| `NASA_API_KEY` | tak | Klucz NASA API |
+| `APP_ID`, `APP_SECRET` | zalecane | Dane aplikacji Meta — potrzebne do `token.php` i do sprawdzania daty wygaśnięcia tokenu |
+| `DEBUG` | nie | `false` na produkcji. **Brak wpisu = tryb debug** (bez publikacji), żeby lokalny run niczego nie wrzucił |
+| `PUBLIC_DIR`, `PUBLIC_URL` | nie | Gdzie zapisywać obrazki na produkcji i pod jakim URL-em są dostępne. Domyślnie `../swagnar.dev/ig-stories` i `https://swagnar.dev/ig-stories` |
 
 ---
 
@@ -60,147 +70,154 @@ NASA_API_KEY=twoj_klucz_nasa
 php run.php
 ```
 
-W trybie debug (lokalne pliki, bez publikacji) ustaw w `run.php`:
+W trybie debug obrazki trafiają do lokalnego `ig-stories/`, a publikacja jest pomijana. Na produkcji (`DEBUG=false`) obrazki zapisywane są w `PUBLIC_DIR` — musi to być katalog w document root domeny z `PUBLIC_URL`, bo Instagram pobiera obrazki po URL-u.
 
-```php
-define('DEBUG', true);
+---
+
+## Token Meta
+
+Meta nie pozwala odnowić **wygasłego** tokenu przez API — trzeba wygenerować nowy. Najlepiej od razu taki, który nie wygasa: token strony uzyskany z długoterminowego tokenu użytkownika.
+
+1. W [Graph API Explorer](https://developers.facebook.com/tools/explorer) wybierz aplikację → **Get User Access Token** z uprawnieniami `instagram_basic`, `instagram_content_publish`, `pages_show_list`, `pages_read_engagement`, `business_management`.
+2. Uruchom:
+   ```bash
+   php token.php 'KRÓTKI_TOKEN_Z_EXPLORERA'
+   ```
+   Skrypt wymienia token na długoterminowy, pobiera token strony podpiętej do `IG_ID`, weryfikuje go przez `debug_token` i zapisuje w `.env` jako `PAGE_ACCESS_TOKEN`. Powinien pokazać **„Wygasa: nigdy”**.
+
+Przed każdym uruchomieniem `InstagramPublisher::checkTokenStatus()` sprawdza token (przez `debug_token`, gdy są `APP_ID`/`APP_SECRET`). Na 14 dni przed wygaśnięciem wypisuje ostrzeżenie, a przy nieważnym tokenie zapisuje obrazek z alertem i pomija publikację.
+
+---
+
+## Deploy i produkcja
+
+Produkcja działa na hostingu cPanel (`vh13519@v102.vh.net.pl`) w katalogu `~/IGAPI`.
+
+```bash
+./deploy.sh          # wysyła kod (src/, geo/, run.php, …) i robi composer install --no-dev
+./deploy.sh --run    # to samo + próbne uruchomienie na serwerze w trybie debug
 ```
 
-W tym trybie obrazki zapisywane są lokalnie do katalogu `ig-stories/`, a publikacja do Instagrama jest pomijana.
+`deploy.sh` nie rusza danych produkcyjnych: `.env`, `btc_data.txt` i wygenerowanych obrazków. Ścieżki można nadpisać zmiennymi `SSH_HOST`, `SSH_KEY`, `REMOTE_DIR`, `PUBLIC_DIR`, `PHP_BIN`.
+
+**Harmonogram** — zadanie CRON w cPanelu, codziennie o 06:00 (czas serwera = CET):
+
+```
+0 6 * * * /usr/local/bin/php /home/vh13519/IGAPI/run.php >> /home/vh13519/IGAPI/cron.log 2>&1
+```
+
+Log z każdego uruchomienia trafia do `~/IGAPI/cron.log`.
 
 ---
 
 ## Architektura
 
 ```
-run.php                  # Punkt wejścia — konfiguracja, rejestracja modułów
-├── StoryRunner           # Orchestrator — iteruje po modułach i publikuje wynik
-├── StoryModule           # Interfejs — każdy moduł "top-level" musi go implementować
-├── StoryPayload          # DTO — zwracany przez moduły (ścieżka + URL slajdów)
-├── NewsPlugin             # Interfejs — pluginy rysowane wewnątrz NewsModule
-├── Bounds                 # DTO — prostokątny obszar (x, y, width, height) do rysowania
-├── InstagramPublisher     # Wysyła obrazek do Meta Graph API i czeka na status kontenera
-├── JsonClient              # HTTP client (GET/POST/cURL)
-├── GdImageHelper            # Niskopoziomowe helpery GD (tekst, tło, ikony, pobieranie obrazków, tłumaczenie, zapis)
-├── Layout\*                  # Komponenty do składania slajdów (patrz niżej)
-└── Console                   # Kolorowy output w terminalu (boot/module/plugin/info/success/warn/error)
+run.php                   # Punkt wejścia — konfiguracja z .env, rejestracja modułów
+├── StoryRunner            # Sprawdza token, uruchamia moduły, publikuje slajdy
+├── StoryModule            # Interfejs modułu (jeden lub więcej slajdów)
+├── StoryPayload           # DTO — ścieżki i URL-e slajdów zwrócone przez moduł
+├── NewsPlugin             # Interfejs pluginu (AbstractPlugin — wspólna baza)
+├── Bounds                 # Prostokąt (x, y, width, height), w którym rysuje się komponent
+├── InstagramPublisher     # Graph API: kontener → oczekiwanie → publikacja; sprawdzanie tokenu
+├── JsonClient             # Klient HTTP (GET/POST/cURL)
+├── GdImageHelper          # Helpery GD (tekst, tło, ikony, pobieranie obrazków, tłumaczenie, zapis)
+├── Layout\*               # Komponenty do składania slajdów
+└── Console                # Kolorowy output w terminalu
 ```
 
-### Layout
-
-Slajdy składa się z komponentów (`Layout\Component`), zamiast rysować tekst w ręcznie liczonych współrzędnych. Każdy komponent dostaje prostokąt (`Bounds`), rysuje się w nim i zwraca zajętą wysokość.
-
-| Komponent | Do czego |
-|---|---|
-| `Slide` | Szkielet Story: tło, tytuł (+ podtytuł), obszar treści, stopka, zapis do pliku |
-| `Stack` | Układa dzieci jedno pod drugim (z opcjonalnym `gap`) |
-| `VerticalSplit` | Dzieli obszar na równe sloty (np. pluginy w `NewsModule`) |
-| `Text`, `WrappedText` | Tekst w jednej linii (left/center/right) i tekst zawijany |
-| `Stat` | Wycentrowana etykieta + duża liczba |
-| `Photo` | Zdjęcie z sieci, skalowane do dostępnego miejsca, z podpisem i opisem |
-| `LineChart`, `BarChart` | Wykres liniowy (oś X proporcjonalna do czasu) i poziomy słupkowy |
-| `Separator`, `Spacer` | Linia pozioma / pusty odstęp |
-| `Custom` | Furtka na rysowanie niestandardowe (np. mapa pogody) |
-
-```php
-$slide = new Slide('MARS', footer: Slide::source('Źródło: NASA'));
-[$path, $url] = $slide->render(
-    (new Stack())
-        ->add(new Text('Pogoda w kraterze Gale', size: 28, color: '#FFFFFF', font: FONT_BOLD, align: 'center'))
-        ->add(new Separator())
-        ->add(new Photo($url, caption: 'Podpis', maxHeight: 400))
-)->save('mars');
-```
-
-### Przepływ działania
+### Przepływ
 
 ```
 run.php
   └─► StoryRunner::run()
-        └─► foreach moduł ze StoryModule[]:
+        ├─► checkTokenStatus()                       (tylko gdy DEBUG=false)
+        └─► foreach moduł:
               ├─► StoryModule::run() → StoryPayload
-              └─► foreach slajd → InstagramPublisher::publish($url)   (pomijane w trybie DEBUG)
+              └─► foreach slajd → InstagramPublisher::publish($url)
+                                  (pomijane w DEBUG i przy nieważnym tokenie)
 ```
 
-`NewsModule` dodatkowo, wewnątrz swojego `run()`, losuje (deterministycznie, seedem z bieżącej daty) zestaw zarejestrowanych `NewsPlugin`, dzieli dostępną wysokość canvasu na równe sloty (`Bounds`) i wywołuje na każdym z nich `fetchData()` oraz `draw()`.
+Błąd w jednym module (albo pluginie) jest logowany i pomijany — nie przerywa pozostałych.
+
+### Layout
+
+Każdy komponent (`Layout\Component`) dostaje prostokąt `Bounds`, rysuje się w nim i zwraca zajętą wysokość.
+
+| Komponent | Do czego |
+|---|---|
+| `Slide` | Szkielet Story: tło, tytuł (+ podtytuł), obszar treści, stopka, zapis do pliku |
+| `Stack` | Układa dzieci jedno pod drugim; każde dostaje resztę wolnego miejsca |
+| `VerticalSplit` | Dzieli obszar na równe sloty (pluginy w `NewsModule`, połówki w `KosmosModule`) |
+| `Text`, `WrappedText` | Tekst w jednej linii (left/center/right) i tekst zawijany |
+| `Stat` | Wycentrowana etykieta + duża liczba |
+| `Photo` | Zdjęcie z sieci, skalowane do dostępnego miejsca, z podpisem i opisem |
+| `LineChart` | Wykres liniowy z wypełnieniem; oś X proporcjonalna do czasu |
+| `BarChart` | Poziomy wykres słupkowy z ikonami; miejsce na podpisy liczone z ich szerokości |
+| `Separator`, `Spacer` | Linia pozioma / pusty odstęp |
+| `Custom` | Furtka na rysowanie niestandardowe (np. mapa pogody) |
+
+```php
+$body = (new VerticalSplit())
+    ->add((new Stack())
+        ->add(new Text('Nagłówek', size: 28, color: '#FFFFFF', font: FONT_BOLD))
+        ->add(new WrappedText('Dłuższy opis…', size: 22, color: '#AAAAAA', font: FONT, lineHeight: 30)))
+    ->add(new Photo($imageUrl, caption: 'Podpis'));   // zdjęcie wypełnia dolną połowę
+
+[$path, $url] = (new Slide('TYTUŁ', footer: Slide::source('Źródło: …')))->render($body)->save('nazwa');
+```
 
 ---
 
 ## Moduły (`StoryModule`)
 
-### `NewsModule`
-Łączy kilka niezależnych pluginów danych na jednym slajdzie. Co dzień losuje (seed = data) `N` pluginów spośród zarejestrowanych, dzieli canvas na równe sloty i rysuje w nich ramki z podpisem oraz zawartość każdego pluginu. Błąd pojedynczego pluginu nie przerywa całego modułu — jest logowany i pomijany.
+### `PalestineModule` — GAZA
+Codzienny raport z [Tech for Palestine](https://data.techforpalestine.org/): liczba zabitych danego dnia, suma łączna, porównanie z poprzednim raportem, podział na dzieci/kobiety/dziennikarzy. Tło z kropek proporcjonalne do liczby ofiar. Gdy brak raportu z wczoraj — pokazuje ostatni dostępny.
 
-**Dostępne:** `BitcoinPlugin`, `PopulationPlugin`, `AsteroidsPlugin`, `DisasterPlugin`
+### `NewsModule` — ŚWIAT
+Dzieli planszę na `PLUGINS_PER_SLIDE` (2) równe sloty i rysuje w nich pluginy wylosowane na dany dzień (seed = data, więc kolejność zmienia się codziennie). Aktywne: `BitcoinPlugin`, `PopulationPlugin`. `DisasterPlugin` jest wyłączony.
 
-### `WeatherModule`
-Pobiera dane pogodowe z [Open-Meteo](https://open-meteo.com/) dla największych miast Polski (prognoza na godz. 12:00) i generuje mapę cieplną kraju z interpolacją IDW na podstawie granic Polski (`geo/poland-border.php`). Dolicza medianę temperatury i losowy komentarz do wyniku.
+### `KosmosModule` — KOSMOS
+Górna połowa: asteroidy z wczoraj (dane i komponent z `AsteroidsPlugin`) oraz dzienny fakt obalający płaską Ziemię. Dolna połowa: losowe zdjęcie z Curiosity z ostatniego roku, z podpisem przetłumaczonym na polski.
 
-**Źródło:** `api.open-meteo.com`
+**Źródła:** NASA NeoWs, `images-api.nasa.gov`
 
-### `PalestineModule`
-Pobiera codzienne dane o ofiarach z [Tech for Palestine API](https://data.techforpalestine.org/) i generuje Story z liczbą zabitych danego dnia, sumą łączną, zmianą względem poprzedniego raportu oraz podziałem na dzieci/kobiety/dziennikarzy. Rysuje tło złożone z kropek proporcjonalne do liczby ofiar. Obsługuje brak raportu dla wczorajszego dnia — wyświetla wtedy ostatni dostępny raport.
-
-**Źródło:** `data.techforpalestine.org`
-
-### `MarsModule`
-Generuje slajd łączący: aktualną pogodę w kraterze Gale (łazik Curiosity), obliczony status misji (dni aktywności, przybliżony sol), losowe zdjęcie z Curiosity (z tłumaczeniem opisu na polski) oraz jeden losowy, dzienny fakt obalający płaską Ziemię.
-
-**Źródła:** `mars.nasa.gov` (pogoda), `images-api.nasa.gov` (zdjęcia)
+### `WeatherModule` — POLSKA
+Prognoza na 12:00 z [Open-Meteo](https://open-meteo.com/) dla 9 miast, mapa cieplna Polski (interpolacja IDW w obrysie z `geo/poland-border.php`), mediana temperatury i wilgotności oraz losowy komentarz. Etykiety miast są układane tak, by mieściły się w granicach kraju i nie nachodziły na siebie.
 
 ### `RemembranceModule` *(w przygotowaniu)*
-Moduł zarezerwowany na przyszłe funkcje upamiętniające — obecnie tylko loguje, że nie ma jeszcze funkcjonalności.
+Na razie tylko loguje, że nie ma jeszcze funkcjonalności.
 
 ---
 
-## Pluginy (`NewsPlugin`, używane przez `NewsModule`)
+## Pluginy (`NewsPlugin`)
 
-Każdy plugin rozszerza `AbstractPlugin`: implementuje `getLabel()`, `fetchData()` oraz `content(array $data): Component` i rysuje się wyłącznie w przydzielonym mu slocie (`Bounds`) canvasu.
-
-### `AsteroidsPlugin`
-Pobiera z NASA NeoWs listę asteroid, które przeleciały wczoraj blisko Ziemi, znajduje najbliższe przejście, pokazuje dystans oraz pasek proporcji względem odległości do Księżyca (lub mnożnik, gdy dystans jest poza skalą). Dokleja stałą notkę o zbliżeniu (99942) Apophis w 2029 r.
-
-**Źródło:** `api.nasa.gov/neo/rest/v1/feed`
-
-### `DisasterPlugin`
-Pobiera aktywne zdarzenia (pożary, trzęsienia ziemi, powodzie, burze, wulkany, osunięcia ziemi, susze, śnieg, ekstremalne temperatury) z NASA EONET, grupuje i sortuje je wg kategorii, a następnie próbuje dobrać pasujące zdjęcie z NASA Image and Video Library (kilka kolejnych, coraz mniej precyzyjnych zapytań). Podpisy zdjęć tłumaczone są na polski.
-
-**Źródła:** `eonet.gsfc.nasa.gov`, `images-api.nasa.gov`
+Plugin rozszerza `AbstractPlugin`: implementuje `getLabel()`, `fetchData()` i `content(array $data): Component`. `NewsModule` rysuje go w przydzielonym slocie, a inny moduł może osadzić jego treść we własnym layoucie przez `$plugin->component($data)` (tak robi `KosmosModule` z asteroidami).
 
 ### `BitcoinPlugin`
-Pobiera aktualną cenę BTC z CoinGecko, dopisuje ją do lokalnego pliku historii (`btc_data.txt`, z ochroną przed duplikatami i nierealnymi skokami ceny) i rysuje wykres liniowy ostatnich odczytów.
-
-**Źródło:** `api.coingecko.com`
+Pobiera cenę i zmianę 24h z CoinGecko, dopisuje cenę do `btc_data.txt` (pomija duplikaty z tej samej minuty i nierealne skoki) i rysuje wykres **całej** zebranej historii. Na produkcji plik rośnie o jeden wpis dziennie.
 
 ### `PopulationPlugin`
-Szacuje bieżącą populację świata na podstawie ekstrapolacji liniowej oraz rysuje wykres słupkowy 10 najludniejszych krajów (z flagami) na podstawie danych World Bank.
+Szacunkowa populacja świata (ekstrapolacja liniowa) i 10 najludniejszych krajów z flagami (World Bank API, `flagcdn.com`).
 
-**Źródła:** World Bank API, `flagcdn.com`
+### `AsteroidsPlugin`
+Asteroidy, które wczoraj minęły Ziemię (NASA NeoWs): liczba, najbliższe przejście i porównanie z odległością do Księżyca (`MoonProximityBar`). Używany przez `KosmosModule`.
+
+### `DisasterPlugin` *(wyłączony)*
+Aktywne zdarzenia z NASA EONET z dobranym zdjęciem — wyłączony, bo nie da się trafnie dobrać zdjęć.
 
 ---
 
 ## Tworzenie własnego modułu
 
-Zaimplementuj interfejs `StoryModule` i złóż slajd z komponentów `Layout`:
-
 ```php
-use Swagnar\Igapi\Contracts\StoryModule;
-use Swagnar\Igapi\Contracts\StoryPayload;
-use Swagnar\Igapi\Layout\Slide;
-use Swagnar\Igapi\Layout\Stack;
-use Swagnar\Igapi\Layout\Stat;
-
 class MojModul implements StoryModule
 {
-    public function getLabel(): string
-    {
-        return 'Mój moduł';
-    }
+    public function getLabel(): string { return 'Mój moduł'; }
 
     public function run(): StoryPayload
     {
-        $body = (new Stack(gap: 40))
-            ->add(new Stat('Odpowiedź', '42'));
+        $body = (new Stack(gap: 40))->add(new Stat('Odpowiedź', '42'));
 
         [$path, $url] = (new Slide('MÓJ MODUŁ', footer: Slide::source('Źródło: ja')))
             ->render($body)
@@ -211,103 +228,52 @@ class MojModul implements StoryModule
 }
 ```
 
-Moduł, który danego dnia nie ma nic do opublikowania, może zwrócić `new StoryPayload([], $this->getLabel())`.
+Moduł, który danego dnia nie ma nic do opublikowania, zwraca `new StoryPayload([], $this->getLabel())`. Rejestracja: tablica `$modules` w `run.php`.
 
-Następnie zarejestruj go w `run.php`:
-
-```php
-$modules = [
-    new MojModul($http),
-];
-```
-
-## Tworzenie własnego pluginu do `NewsModule`
-
-Rozszerz `AbstractPlugin` — pobierz dane w `fetchData()`, a w `content()` zwróć komponent, który zostanie narysowany w przydzielonym slocie:
+## Tworzenie własnego pluginu
 
 ```php
-use Swagnar\Igapi\Contracts\AbstractPlugin;
-use Swagnar\Igapi\Layout\Component;
-use Swagnar\Igapi\Layout\Stack;
-use Swagnar\Igapi\Layout\Text;
-
 class MojPlugin extends AbstractPlugin
 {
-    public function getLabel(): string
-    {
-        return 'Mój plugin';
-    }
+    public function getLabel(): string { return 'Mój plugin'; }
 
     public function fetchData(): array
     {
-        // Pobierz i zwróć dane potrzebne do rysowania (tu też tłumaczenia itp.)
-        return ['value' => 123];
+        return ['value' => 123];   // pobranie danych, tłumaczenia itp.
     }
 
     protected function content(array $data): Component
     {
         return (new Stack())
-            ->add(new Text('Mój plugin', size: 28, color: '#FFFFFF', font: FONT_BOLD))
-            ->add(new Text((string) $data['value'], size: 54, color: '#FFFFFF', font: FONT_BOLD, align: 'center', height: 70));
+            ->add(new Spacer(30))
+            ->add(new Text('Mój plugin', size: 24, color: '#8899CC', font: FONT, height: 40))
+            ->add(new Text((string) $data['value'], size: 48, color: '#FFFFFF', font: FONT_BOLD, height: 70));
     }
 }
 ```
 
-Następnie zarejestruj go w `NewsModule::$availablePlugins`.
+Rejestracja: `NewsModule::$availablePlugins`. Nagłówek w stylu jak wyżej (niebieska etykieta 24 px + wartość 48 px) trzyma spójność z pozostałymi pluginami na planszy ŚWIAT.
 
 ---
 
 ## Struktura katalogów
 
 ```
-igapi/
-├── run.php
-├── .env
-├── Inter-Regular.ttf
-├── Inter-Bold.ttf
-├── btc_data.txt              # Lokalna historia cen BTC (BitcoinPlugin)
-├── geo/
-│   └── poland-border.php     # Współrzędne granic Polski (WeatherModule)
-├── ig-stories/                # Wygenerowane obrazki (tryb DEBUG i produkcja)
-├── vendor/
+IGAPI/
+├── run.php                   # Punkt wejścia
+├── token.php                 # Generowanie nie wygasającego tokenu strony Meta
+├── deploy.sh                 # Deploy na hosting
+├── .env / .env.example
+├── btc_data.txt              # Historia cen BTC (BitcoinPlugin)
+├── Inter-Regular.ttf, Inter-Bold.ttf
+├── geo/poland-border.php     # Obrys Polski (WeatherModule)
+├── ig-stories/               # Obrazki z trybu debug
 └── src/
-    ├── Contracts/
-    │   ├── StoryModule.php
-    │   ├── StoryPayload.php
-    │   ├── StoryRunner.php
-    │   ├── NewsPlugin.php
-    │   ├── AbstractPlugin.php
-    │   └── Bounds.php
-    ├── Helper/
-    │   ├── Console.php
-    │   └── GdImageHelper.php
-    ├── Http/
-    │   ├── JsonClient.php
-    │   └── InstagramPublisher.php
-    ├── Layout/
-    │   ├── Component.php
-    │   ├── Slide.php
-    │   ├── Stack.php
-    │   ├── VerticalSplit.php
-    │   ├── Text.php
-    │   ├── WrappedText.php
-    │   ├── Stat.php
-    │   ├── Photo.php
-    │   ├── LineChart.php
-    │   ├── BarChart.php
-    │   ├── Separator.php
-    │   ├── Spacer.php
-    │   └── Custom.php
-    ├── Modules/
-    │   ├── WeatherModule.php
-    │   ├── PalestineModule.php
-    │   ├── MarsModule.php
-    │   ├── NewsModule.php
-    │   └── RemembranceModule.php
-    └── Plugins/
-        ├── AsteroidsPlugin.php
-        ├── DisasterPlugin.php
-        ├── BitcoinPlugin.php
-        ├── PopulationPlugin.php
-        └── MoonProximityBar.php
+    ├── Contracts/   StoryModule, StoryPayload, StoryRunner, NewsPlugin, AbstractPlugin, Bounds
+    ├── Helper/      Console, GdImageHelper
+    ├── Http/        JsonClient, InstagramPublisher
+    ├── Layout/      Component, Slide, Stack, VerticalSplit, Text, WrappedText, Stat, Photo,
+    │                LineChart, BarChart, Separator, Spacer, Custom
+    ├── Modules/     PalestineModule, NewsModule, KosmosModule, WeatherModule, RemembranceModule
+    └── Plugins/     BitcoinPlugin, PopulationPlugin, AsteroidsPlugin, DisasterPlugin, MoonProximityBar
 ```

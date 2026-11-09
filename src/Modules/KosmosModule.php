@@ -14,8 +14,8 @@ use Swagnar\Igapi\Layout\Slide;
 use Swagnar\Igapi\Layout\Spacer;
 use Swagnar\Igapi\Layout\Stack;
 use Swagnar\Igapi\Layout\Text;
+use Swagnar\Igapi\Layout\VerticalSplit;
 use Swagnar\Igapi\Layout\WrappedText;
-use DateTimeImmutable;
 use RuntimeException;
 
 class KosmosModule implements StoryModule
@@ -28,73 +28,6 @@ class KosmosModule implements StoryModule
     }
 
     public function getLabel(): string { return 'Kosmos'; }
-
-    // ============================================================
-    // POGODA
-    // ============================================================
-
-    private function fetchWeather(): array
-    {
-        Console::info("Pobieram dane o pogodzie z krateru Gale...");
-        $url = 'https://mars.nasa.gov/rss/api/?' . http_build_query([
-            'feed'     => 'weather',
-            'category' => 'msl',
-            'feedtype' => 'json',
-        ]);
-
-        $data = $this->http->get($url);
-        $latest = $data['soles'][0] ?? null;
-
-        if ($latest === null) {
-            throw new RuntimeException('Brak danych pogodowych z Gale Crater');
-        }
-        Console::success("Pobrano dane pogodowe z krateru Gale");
-        return $latest;
-    }
-
-    /**
-     * Dane REMS z Curiosity docierają z opóźnieniem rzędu tygodni — pokazujemy wprost, jak stary jest pomiar,
-     * zamiast udawać, że to pogoda "na dziś".
-     */
-    private function describeMeasurementAge(string $terrestrialDate): string
-    {
-        try {
-            $measured = new DateTimeImmutable($terrestrialDate);
-        } catch (\Throwable) {
-            return 'data pomiaru nieznana';
-        }
-
-        $days = (int) $measured->diff(new DateTimeImmutable('today'))->days;
-        $date = $measured->format('d.m.Y');
-
-        return match (true) {
-            $days === 0 => "pomiar z dziś ({$date})",
-            $days === 1 => "pomiar z wczoraj ({$date})",
-            default     => "pomiar z {$date} ({$days} dni temu)",
-        };
-    }
-
-    private function valueOrDash(mixed $value): string
-    {
-        return ($value === null || $value === '' || $value === '--') ? '—' : (string) $value;
-    }
-
-    // ============================================================
-    // STATUS MISJI
-    // ============================================================
-
-    private function computeMissionStatus(): array
-    {
-        $landing = new DateTimeImmutable('2012-08-06');
-        $now = new DateTimeImmutable();
-        $daysActive = $landing->diff($now)->days;
-        $approxSol = (int) floor($daysActive / 1.0275);
-
-        return [
-            'days_active' => $daysActive,
-            'approx_sol'  => $approxSol,
-        ];
-    }
 
     private function fetchRandomPhoto(): array
     {
@@ -179,91 +112,34 @@ class KosmosModule implements StoryModule
         return $facts[$index];
     }
 
-    private function translateAtmoOpacity(string $value): string
-    {
-        $map = [
-            'Sunny'      => 'Słonecznie',
-            'Cloudy'     => 'Pochmurno',
-            'Dusty'      => 'Zapylone',
-            'Ice fog'    => 'Mgła lodowa',
-            'Unknown'    => 'Nieznane',
-        ];
-
-        return $map[$value] ?? $value; // fallback: oryginał, gdyby API zwróciło coś nowego
-    }
-
-    private function translateUvIndex(string $value): string
-    {
-        $map = [
-            'Low'        => 'Niski',
-            'Moderate'   => 'Umiarkowany',
-            'High'       => 'Wysoki',
-            'Very High'  => 'Bardzo wysoki',
-            'Unknown'    => 'Nieznany',
-        ];
-
-        return $map[$value] ?? $value;
-    }
-
     public function run(): StoryPayload
     {
-        $body = (new Stack())->add(new Spacer(30));
-
-        // --- Mars: pogoda + status misji ---
-        try {
-            $body->add($this->weatherSection($this->fetchWeather()));
-        } catch (\Throwable $e) {
-            Console::error("Pogoda Mars failed: " . $e->getMessage());
-        }
-        $body->add($this->missionSection($this->computeMissionStatus()));
-        $body->add(new Separator(marginTop: 25, marginBottom: 30));
+        $top = (new Stack())->add(new Spacer(30));
 
         // --- Asteroidy ---
         try {
-            $body->add($this->asteroids->component($this->asteroids->fetchData()));
-            $body->add(new Separator(marginTop: 25, marginBottom: 30));
+            $top->add($this->asteroids->component($this->asteroids->fetchData()));
+            $top->add(new Separator(marginTop: 25, marginBottom: 30));
         } catch (\Throwable $e) {
             Console::error("Asteroidy failed: " . $e->getMessage());
         }
 
-        $body->add($this->flatEarthSection($this->pickDailyFlatEarthFact()));
+        $top->add($this->flatEarthSection($this->pickDailyFlatEarthFact()));
 
-        // --- Zdjęcie na końcu — Photo dopasowuje się do miejsca, które zostało do stopki ---
+        // --- Zdjęcie: cała dolna połowa slajdu ---
+        $bottom = (new Stack())->add(new Separator(marginTop: 0, marginBottom: 30));
         try {
-            $photo = $this->fetchRandomPhoto();
-            $body->add(new Separator(marginTop: 25, marginBottom: 30));
-            $body->add($this->photoSection($photo));
+            $bottom->add($this->photoSection($this->fetchRandomPhoto()));
         } catch (\Throwable $e) {
             Console::error("Zdjęcie Curiosity failed: " . $e->getMessage());
         }
 
-        $slide = new Slide('KOSMOS', footer: Slide::source('Źródło: NASA JPL / NeoWs / CAB'));
+        $body = (new VerticalSplit())->add($top)->add($bottom);
+
+        $slide = new Slide('KOSMOS', footer: Slide::source('Źródło: NASA NeoWs / NASA Image Library'));
         [$path, $url] = $slide->render($body)->save('kosmos');
 
         return StoryPayload::single($path, $url, $this->getLabel());
-    }
-
-    private function weatherSection(array $sol): Component
-    {
-        $min = $this->valueOrDash($sol['min_temp'] ?? null);
-        $max = $this->valueOrDash($sol['max_temp'] ?? null);
-        $sky = $this->translateAtmoOpacity($sol['atmo_opacity'] ?? 'Unknown');
-        $uv  = $this->translateUvIndex($sol['local_uv_irradiance_index'] ?? 'Unknown');
-
-        return (new Stack())
-            ->add(new Text('Mars — pogoda w kraterze Gale', size: 28, color: '#FFFFFF', font: FONT_BOLD, height: 40))
-            ->add(new Text("Sol {$sol['sol']} · " . $this->describeMeasurementAge($sol['terrestrial_date'] ?? ''), size: 20, color: '#AAAAAA', font: FONT, height: 36))
-            ->add(new Text("Temperatura: {$min}°C do {$max}°C", size: 32, color: '#88CCFF', font: FONT_BOLD, height: 55))
-            ->add(new Text('Ciśnienie: ' . $this->valueOrDash($sol['pressure'] ?? null) . ' Pa', size: 22, color: '#AAAAAA', font: FONT, height: 38))
-            ->add(new Text("Niebo: {$sky} — UV: {$uv}", size: 22, color: '#AAAAAA', font: FONT, height: 34));
-    }
-
-    private function missionSection(array $status): Component
-    {
-        return new Text(
-            "Curiosity: {$status['days_active']} dni na Marsie (~sol {$status['approx_sol']} misji)",
-            size: 22, color: '#AAAAAA', font: FONT, height: 38,
-        );
     }
 
     private function photoSection(array $photo): Component

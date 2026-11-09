@@ -44,11 +44,14 @@ class PopulationPlugin extends AbstractPlugin
             'icon'       => "https://flagcdn.com/32x24/{$country['code']}.png",
         ], $data['countries']);
 
+        // Nagłówek w tym samym stylu co BitcoinPlugin — oba pluginy dzielą planszę ŚWIAT
         return (new Stack())
-            ->add(new Text('Ilu nas jest?', size: 28, color: '#FFFFFF', font: FONT_BOLD, indent: 20, height: 61))
-            ->add(new Text(number_format($data['population'], 0, ',', ' '), size: 54, color: '#FFFFFF', font: FONT_BOLD, align: 'center', height: 70))
             ->add(new Spacer(30))
-            ->add(new BarChart($rows, indent: 20));
+            ->add(new Text('Ilu nas jest?', size: 24, color: '#8899CC', font: FONT, height: 40))
+            ->add(new Text(number_format($data['population'], 0, ',', ' '), size: 48, color: '#FFFFFF', font: FONT_BOLD, height: 70))
+            ->add(new Text('ludzi na Ziemi (szacunek)', size: 22, color: '#AAAAAA', font: FONT, height: 36))
+            ->add(new Spacer(30))
+            ->add(new BarChart($rows));
     }
 
     private function getWorldPopulationNumber(): int {

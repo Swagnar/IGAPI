@@ -14,7 +14,8 @@ final class BarChart implements Component
     private const ICON_W = 32;
     private const ICON_H = 24;
     private const LABEL_W = 200;
-    private const VALUE_W = 80;   // miejsce na podpis wartości za najdłuższym słupkiem
+    private const VALUE_SIZE = 15;
+    private const VALUE_GAP  = 8;    // odstęp podpisu wartości od końca słupka
 
     /**
      * @param array<array{label: string, value: int|float, valueLabel: string, icon?: ?string}> $rows
@@ -37,7 +38,7 @@ final class BarChart implements Component
 
         $rowH      = min($this->maxRowHeight, intdiv($bounds->height, count($this->rows)));
         $barStartX = $bounds->x + self::ICON_W + self::LABEL_W;
-        $barMaxW   = $bounds->x + $bounds->width - $barStartX - self::VALUE_W;
+        $barMaxW   = $bounds->x + $bounds->width - $barStartX - self::VALUE_GAP - $this->widestValueLabel();
         $maxValue  = max(array_column($this->rows, 'value')) ?: 1;
 
         foreach ($this->rows as $i => $row) {
@@ -54,9 +55,20 @@ final class BarChart implements Component
             $barCol = imagecolorallocate($img, 40, min(255, 100 + $i * 8), max(0, 220 - $i * 6));   // lekko różnicowany odcień niebieskiego
             imagefilledrectangle($img, $barStartX, $y, $barStartX + $barW, $y + $this->barHeight, $barCol);
 
-            GdImageHelper::drawText($img, $row['valueLabel'], $barStartX + $barW + 8, $y + 22, 15, '#8899BB', FONT);
+            GdImageHelper::drawText($img, $row['valueLabel'], $barStartX + $barW + self::VALUE_GAP, $y + 22, self::VALUE_SIZE, '#8899BB', FONT);
         }
 
         return count($this->rows) * $rowH;
+    }
+
+    /** Szerokość najdłuższego podpisu wartości — tyle miejsca zostawiamy za najdłuższym słupkiem. */
+    private function widestValueLabel(): int
+    {
+        $widths = array_map(function (array $row): int {
+            $box = imagettfbbox(self::VALUE_SIZE, 0, FONT, $row['valueLabel']);
+            return $box[2] - $box[0];
+        }, $this->rows);
+
+        return max($widths);
     }
 }

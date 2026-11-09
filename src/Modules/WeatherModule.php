@@ -320,7 +320,6 @@ class WeatherModule implements StoryModule {
                 }
             }
         }
-        imagedestroy($mask);
 
         $borderColor = imagecolorallocate($img, 230, 230, 230);
         imagesetthickness($img, 2);
@@ -328,21 +327,110 @@ class WeatherModule implements StoryModule {
         imagesetthickness($img, 1);
 
         Console::info("Rysuję punkty miast i temperatury...");
-        foreach ($points as $p) {
-            $dot = imagecolorallocate($img, 255, 255, 255);
-            imagefilledellipse($img, $p['x'], $p['y'], 8, 8, $dot);
+        $dot     = imagecolorallocate($img, 255, 255, 255);
+        $labelBg = imagecolorallocatealpha($img, 8, 12, 32, 40);
+        $dots    = array_map(fn($p) => [$p['x'] - 6, $p['y'] - 6, $p['x'] + 6, $p['y'] + 6], $points);
 
-            $hi = $this->heatIndex($p['temp'], $p['humidity']);
+        // Wymiary etykiet: wilgotność (16 px) nad nazwą z temperaturą (22 px)
+        $labels = array_map(function (array $p): array {
+            $text     = sprintf('%s %.0f°C', $p['name'], $p['temp']);
+            $humidity = $p['humidity'] !== null ? sprintf('%.0f%%', $p['humidity']) : null;
+            return [
+                'text'     => $text,
+                'humidity' => $humidity,
+                'w'        => max($this->textWidth($text, 22), $humidity !== null ? $this->textWidth($humidity, 16) : 0),
+                'h'        => $humidity !== null ? 52 : 28,
+            ];
+        }, $points);
 
-            if ($p['humidity'] !== null) {
-                $humidityText = sprintf('%.0f%%', $p['humidity']);
-                GdImageHelper::drawText($img, $humidityText, $p['x'] + 12, $p['y'] - 34, 16, '#7FA8C9', FONT);
+        // Kilka przejść: każda etykieta wybiera najlepszą pozycję względem aktualnych pozycji pozostałych,
+        // dzięki czemu kolejność miast nie przesądza o układzie (jak przy jednym, zachłannym przejściu)
+        $boxOf     = fn(array $pos, array $l) => [$pos[0] - 6, $pos[1] - 4, $pos[0] + $l['w'] + 6, $pos[1] + $l['h'] + 4];
+        $positions = array_map(fn($p, $l) => [$p['x'] + 12, $p['y'] - $l['h'] - 4], $points, $labels);
+        for ($pass = 0; $pass < 4; $pass++) {
+            $changed = false;
+            foreach ($points as $i => $p) {
+                $others = $dots;
+                foreach ($positions as $j => $pos) {
+                    if ($j !== $i) {
+                        $others[] = $boxOf($pos, $labels[$j]);
+                    }
+                }
+                $best    = $this->bestLabelPosition($mask, $p['x'], $p['y'], $labels[$i]['w'], $labels[$i]['h'], $others);
+                $changed = $changed || $best !== $positions[$i];
+                $positions[$i] = $best;
             }
-
-            $text = sprintf('%s %.0f°C', $p['name'], $p['temp']);
-            GdImageHelper::drawText($img, $text, $p['x'] + 12, $p['y'] - 10, 22, $this->tempLabelColor($hi), FONT);
+            if (!$changed) {
+                break;
+            }
         }
 
+        foreach ($points as $i => $p) {
+            imagefilledellipse($img, $p['x'], $p['y'], 8, 8, $dot);
+
+            $l         = $labels[$i];
+            [$lx, $ly] = $positions[$i];
+            [$x1, $y1, $x2, $y2] = $boxOf($positions[$i], $l);
+
+            imagefilledrectangle($img, $x1, $y1, $x2, $y2, $labelBg);
+            if ($l['humidity'] !== null) {
+                GdImageHelper::drawText($img, $l['humidity'], $lx, $ly + 18, 16, '#7FA8C9', FONT);
+            }
+            GdImageHelper::drawText($img, $l['text'], $lx, $ly + $l['h'] - 4, 22, $this->tempLabelColor($this->heatIndex($p['temp'], $p['humidity'])), FONT);
+        }
+        imagedestroy($mask);
+
         return $bounds->height;
+    }
+
+    /**
+     * Wybiera narożnik (prawo/lewo × nad/pod punktem), w którym ramka etykiety w największym stopniu
+     * leży wewnątrz Polski — żeby etykiety przy granicy (Gdańsk, Lublin) nie wchodziły na linię brzegu.
+     * Nachodzenie na inne etykiety lub punkty miast jest karane mocniej niż wyjście za granicę.
+     * Przy remisie wygrywa kolejność: prawo-nad (domyślna), prawo-pod, lewo-nad, lewo-pod.
+     *
+     * @param array<array{0: int, 1: int, 2: int, 3: int}> $obstacles ramki [x1, y1, x2, y2] do ominięcia
+     * @return array{0: int, 1: int} lewy górny róg ramki
+     */
+    private function bestLabelPosition(GdImage $mask, int $x, int $y, int $w, int $h, array $obstacles): array
+    {
+        $candidates = [
+            [$x + 12,      $y - $h - 4],
+            [$x + 12,      $y + 8],
+            [$x - 12 - $w, $y - $h - 4],
+            [$x - 12 - $w, $y + 8],
+        ];
+
+        $best = $candidates[0];
+        $bestScore = -1;
+        foreach ($candidates as [$cx, $cy]) {
+            $inside = 0;
+            for ($sx = 0; $sx <= 4; $sx++) {
+                for ($sy = 0; $sy <= 2; $sy++) {
+                    $px = $cx + intdiv($w * $sx, 4);
+                    $py = $cy + intdiv($h * $sy, 2);
+                    if ($px >= 0 && $py >= 0 && $px < WIDTH && $py < HEIGHT && (imagecolorat($mask, $px, $py) & 0xFF) >= 200) {
+                        $inside++;
+                    }
+                }
+            }
+            foreach ($obstacles as [$ox1, $oy1, $ox2, $oy2]) {
+                if ($cx - 6 < $ox2 && $cx + $w + 6 > $ox1 && $cy - 4 < $oy2 && $cy + $h + 4 > $oy1) {
+                    $inside -= 100;
+                }
+            }
+            if ($inside > $bestScore) {
+                $best = [$cx, $cy];
+                $bestScore = $inside;
+            }
+        }
+
+        return $best;
+    }
+
+    private function textWidth(string $text, int $size): int
+    {
+        $box = imagettfbbox($size, 0, FONT, $text);
+        return $box[2] - $box[0];
     }
 }
