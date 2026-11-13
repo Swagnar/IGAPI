@@ -1852,6 +1852,24 @@ function renderStatus() {
         items.push(pill('idle', 'Ostatni render', ago(at), `${s.render.file}\n${s.render.count} obrazów w ig-stories/`));
     }
 
+    if (s.commit) {
+        const c = s.commit;
+        items.push(pill(c.dirty ? 'warn' : 'idle', 'Commit', ago(new Date(c.at * 1000).toISOString()),
+            `${c.hash} · ${c.subject}\n${unixDate(c.at)}` + (c.dirty ? `\n\n${c.dirty} niezacommitowanych zmian` : '')));
+    }
+
+    // Deploy wysyła working tree — „za commitem” oznacza, że na serwerze jest kod sprzed ostatniego commita
+    const d = s.deploy;
+    if (d) {
+        const behind = s.commit && d.commit && d.commit !== s.commit.hash;
+        items.push(pill(behind ? 'warn' : 'idle', 'Deploy', ago(new Date(d.at * 1000).toISOString()),
+            [`${unixDate(d.at)}${d.run ? ' · z próbnym runem' : ''}`,
+             `Commit ${d.commit || '—'}${d.dirty ? ` + ${d.dirty} niezacommitowanych zmian` : ''}`,
+             behind ? `\nOd tego czasu jest nowszy commit (${s.commit.hash}) — serwer może mieć starszy kod.` : ''].filter(Boolean).join('\n')));
+    } else {
+        items.push(pill('idle', 'Deploy', 'brak danych', 'Ślad pojawi się po najbliższym ./deploy.sh (.igapi/last-deploy.json).'));
+    }
+
     $('statusbar-items').replaceChildren(...items);
     renderStatusChecked();
 }

@@ -68,4 +68,11 @@ if [[ "${1:-}" == "--run" ]]; then
     ssh_remote "cd ~/$REMOTE_DIR && DEBUG=true $PHP_BIN run.php"
 fi
 
+# Ślad dla paska statusu edytora: kiedy i z którego commita poszedł deploy (i czy z niezacommitowanymi zmianami)
+mkdir -p .igapi
+printf '{"at":%s,"commit":"%s","dirty":%s,"run":%s}\n' \
+    "$(date +%s)" "$(git rev-parse --short HEAD 2>/dev/null || true)" \
+    "$(git status --porcelain 2>/dev/null | wc -l | tr -d ' ')" \
+    "$([[ "${1:-}" == "--run" ]] && echo true || echo false)" > .igapi/last-deploy.json
+
 echo "==> Gotowe"

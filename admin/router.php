@@ -517,7 +517,30 @@ function status(bool $refresh): array
         'plan'    => planStatus(),
         'render'  => lastRender(),
         'xdebug'  => xdebugMode(),
+        'deploy'  => lastDeploy(),
+        'commit'  => lastCommit(),
     ];
+}
+
+/** Ostatni deploy — ślad, który deploy.sh zostawia w .igapi/last-deploy.json. */
+function lastDeploy(): ?array
+{
+    $file = ROOT_DIR . '/.igapi/last-deploy.json';
+    $data = is_file($file) ? json_decode((string) file_get_contents($file), true) : null;
+    return is_array($data) ? $data : null;
+}
+
+/** Ostatni commit i liczba niezacommitowanych zmian (bez gita — null). */
+function lastCommit(): ?array
+{
+    $root = escapeshellarg(ROOT_DIR);
+    $log  = trim((string) @shell_exec("git -C {$root} log -1 --format=%h%x1f%ct%x1f%s 2>" . (PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null')));
+    if (substr_count($log, "\x1f") !== 2) {
+        return null;
+    }
+    [$hash, $at, $subject] = explode("\x1f", $log);
+    $changes = (string) @shell_exec("git -C {$root} status --porcelain 2>" . (PHP_OS_FAMILY === 'Windows' ? 'NUL' : '/dev/null'));
+    return ['hash' => $hash, 'at' => (int) $at, 'subject' => $subject, 'dirty' => count(array_filter(explode("\n", $changes)))];
 }
 
 /** Tryb Xdebuga, gdy działa (np. „develop” z php.ini XAMPP-a) — rysowanie GD jest wtedy kilkanaście razy wolniejsze. */
