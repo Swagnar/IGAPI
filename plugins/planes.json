@@ -1,0 +1,60 @@
+{
+    "label": "Samoloty nad Polską",
+    "sources": ["planes"],
+    "body": {
+        "type": "Stack",
+        "name": "Samoloty nad Polską",
+        "children": [
+            { "type": "Spacer", "height": 30 },
+            { "type": "Text", "text": "Wczoraj nad Polską", "size": 24, "color": "#8899CC", "height": 40 },
+            { "type": "Text", "text": "{{planes.countText}}", "size": 48, "font": "bold", "height": 70 },
+            { "type": "Text", "text": "{{planes.subline}}", "size": 22, "color": "#7DD3FC", "height": 36 },
+            { "type": "Spacer", "height": 12 },
+            {
+                "type": "Columns",
+                "weights": [5, 2],
+                "gap": 24,
+                "children": [
+                    {
+                        "type": "HeatMap",
+                        "name": "Mapa lotów",
+                        "points": [],
+                        "area": "poland",
+                        "land": "europe:!",
+                        "palette": [
+                            [
+                                0,
+                                [0, 0, 0],
+                                127
+                            ]
+                        ],
+                        "view": "{{planes.view}}",
+                        "paths": "{{planes.paths}}",
+                        "maxHeight": 440
+                    },
+                    {
+                        "type": "Stack",
+                        "name": "Legenda",
+                        "children": [
+                            {
+                                "type": "Table",
+                                "rows": "{{planes.legend}}",
+                                "align": ["left", "left", "right"],
+                                "bold": [2],
+                                "size": 18,
+                                "rowHeight": 34,
+                                "gap": 8
+                            },
+                            { "type": "Spacer", "height": 14 },
+                            { "type": "WrappedText", "when": "planes.notableText", "text": "{{planes.notableText}}", "size": 16, "color": "#8C9AB8", "lineHeight": 24 }
+                        ]
+                    }
+                ]
+            },
+            { "type": "Spacer", "height": 16 },
+            { "type": "Text", "text": "{{planes.peakText}}", "size": 18, "color": "#8C9AB8", "height": 30 },
+            { "type": "Text", "when": "planes.gapNote", "text": "{{planes.gapNote}}", "size": 14, "color": "#556688", "height": 24 },
+            { "type": "ColumnChart", "name": "Loty w ciągu doby", "bars": "{{planes.hourBars}}", "labelEvery": 6, "color": "#2E5A85" }
+        ]
+    }
+}

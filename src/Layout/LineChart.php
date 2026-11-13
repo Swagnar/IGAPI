@@ -18,16 +18,30 @@ final class LineChart implements Component
 
     /**
      * @param array<array{x: int|float, y: int|float}> $points posortowane rosnąco po x
-     * @param callable(float): string $formatY
-     * @param callable(int|float): string $formatX
+     * @param callable(float): string|string $formatY funkcja albo wzór, w którym {v} to liczba po polsku, np. '${v}'
+     * @param callable(int|float): string|string $formatX funkcja albo format daty dla x jako timestampu, np. 'd.m.Y'
+     * @param int $decimals miejsca po przecinku w {v} (np. 2 dla kursu walut)
      */
     public function __construct(
         private readonly array $points,
-        private readonly mixed $formatY,
-        private readonly mixed $formatX,
+        private readonly mixed $formatY = '{v}',
+        private readonly mixed $formatX = 'd.m.Y',
         private readonly string $emptyText = 'Brak danych',
         private readonly string $labelColor = '#556688',
+        private readonly int $decimals = 0,
     ) {}
+
+    private function labelY(float $value): string
+    {
+        return is_callable($this->formatY)
+            ? ($this->formatY)($value)
+            : str_replace('{v}', number_format($value, $this->decimals, ',', ' '), (string) $this->formatY);
+    }
+
+    private function labelX(int|float $value): string
+    {
+        return is_callable($this->formatX) ? ($this->formatX)($value) : date((string) $this->formatX, (int) $value);
+    }
 
     public function render(GdImage $img, Bounds $bounds): int
     {
@@ -54,7 +68,7 @@ final class LineChart implements Component
         for ($gi = 0; $gi <= 4; $gi++) {
             $gy = (int)($y0 + $h - $gi / 4 * $h);
             imageline($img, $x0, $gy, $x0 + $w, $gy, $gridColor);
-            GdImageHelper::drawText($img, ($this->formatY)($minY + $gi / 4 * $rangeY), $bounds->x + 8, $gy - 10, 18, $this->labelColor, FONT);
+            GdImageHelper::drawText($img, $this->labelY($minY + $gi / 4 * $rangeY), $bounds->x + 8, $gy - 10, 18, $this->labelColor, FONT);
         }
 
         $isUp = $this->points[$n - 1]['y'] >= $this->points[0]['y'];
@@ -94,8 +108,8 @@ final class LineChart implements Component
         imagefilledellipse($img, $lx, $ly, 14, 14, imagecolorallocate($img, 255, 255, 255));
         imagefilledellipse($img, $lx, $ly, 8, 8, $lineColor);
 
-        GdImageHelper::drawText($img, ($this->formatX)($firstX), $x0, $bottom + 28, 20, $this->labelColor, FONT);
-        GdImageHelper::rightText($img, ($this->formatX)($this->points[$n - 1]['x']), $x0 + $w, $bottom + 28, 20, $this->labelColor, FONT);
+        GdImageHelper::drawText($img, $this->labelX($firstX), $x0, $bottom + 28, 20, $this->labelColor, FONT);
+        GdImageHelper::rightText($img, $this->labelX($this->points[$n - 1]['x']), $x0 + $w, $bottom + 28, 20, $this->labelColor, FONT);
 
         return $bounds->height;
     }

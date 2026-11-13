@@ -16,8 +16,15 @@ class StoryRunner
         private readonly InstagramPublisher $publisher,
     ){}
 
-    public function run(): void {
+    /**
+     * Generuje i publikuje slajdy po kolei; zwraca to, co się wygenerowało (klucze jak w $modules) —
+     * moduł z błędem nie ma wpisu. 'published' = czy slajdy poszły na Instagram.
+     *
+     * @return array{published: bool, payloads: array<string|int, StoryPayload>}
+     */
+    public function run(): array {
         $publish = !DEBUG;
+        $payloads = [];
 
         if ($publish) {
             $tokenStatus = $this->publisher->checkTokenStatus();
@@ -33,13 +40,14 @@ class StoryRunner
             }
         }
 
-        foreach($this->modules as $module) {
+        foreach($this->modules as $key => $module) {
             if (!$module instanceof StoryModule) {
                 throw new \InvalidArgumentException("Module musi implementować StoryModule");
             }
             Console::boot("Uruchamiam moduł: " . $module->getLabel());
             try {
                 $payload = $module->run();
+                $payloads[$key] = $payload;
                 Console::module("Moduł " . $module->getLabel() . " zakończył działanie.");
             } catch (\Throwable $e) {
                 Console::error("Błąd w module " . $module->getLabel() . ": " . $e->getMessage() . "\n" . $e->getTraceAsString());
@@ -59,6 +67,8 @@ class StoryRunner
                 }
             }
         }
+
+        return ['published' => $publish, 'payloads' => $payloads];
     }
 
     /**

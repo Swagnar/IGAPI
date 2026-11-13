@@ -1,0 +1,26 @@
+{
+    "label": "Świat",
+    "title": "ŚWIAT",
+    "footer": "Źródło: {{credits}}",
+    "body": {
+        "type": "VerticalSplit",
+        "order": "daily",
+        "pick": 2,
+        "gap": 40,
+        "children": [
+            { "type": "Plugin", "plugin": "bitcoin" },
+            { "type": "Plugin", "plugin": "population" },
+            { "type": "Plugin", "plugin": "earthquakes" },
+            { "type": "Plugin", "plugin": "electricity" },
+            { "type": "Plugin", "plugin": "climate" },
+            { "type": "Plugin", "plugin": "bigMac" },
+            { "type": "Plugin", "plugin": "fearGreed" },
+            { "type": "Plugin", "plugin": "seaIce" },
+            { "type": "Plugin", "plugin": "currencies" },
+            { "type": "Plugin", "plugin": "inflation" },
+            { "type": "Plugin", "plugin": "fuel" },
+            { "type": "Plugin", "plugin": "elNino" },
+            { "type": "Plugin", "plugin": "housing" }
+        ]
+    }
+}

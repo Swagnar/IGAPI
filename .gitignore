@@ -7,3 +7,11 @@ src/old/
 btc_data_off.txt
 *.tar
 todo.md
+cache/
+.igapi/
+plugin-ideas.md
+.claude/skills/plugin-pipeline/
+.claude/skills/idea-pipeline/
+bin/preview.php
+web/data/
+.claude/skills/deploy-igapi/

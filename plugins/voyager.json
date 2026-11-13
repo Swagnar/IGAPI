@@ -1,0 +1,40 @@
+{
+    "label": "Gdzie są Voyagery",
+    "sources": ["voyager"],
+    "body": {
+        "type": "Stack",
+        "name": "Gdzie są Voyagery",
+        "children": [
+            { "type": "Text", "text": "Voyagery · {{voyager.years}} lat w drodze", "size": 24, "color": "#8899CC", "height": 40 },
+            { "type": "Spacer", "height": 12 },
+            {
+                "type": "Columns",
+                "name": "Obie sondy",
+                "weights": [1, 1],
+                "gap": 24,
+                "children": [
+                    {
+                        "type": "Stack",
+                        "name": "Voyager 1",
+                        "children": [
+                            { "type": "Text", "text": "{{voyager.v1.name}}", "size": 20, "font": "bold", "color": "{{voyager.v1.color}}", "height": 30 },
+                            { "type": "Text", "text": "{{voyager.v1.distance}}", "size": 40, "font": "bold", "height": 56 },
+                            { "type": "Text", "text": "{{voyager.v1.signal}}", "size": 17, "color": "#AAB4CC", "height": 26 }
+                        ]
+                    },
+                    {
+                        "type": "Stack",
+                        "name": "Voyager 2",
+                        "children": [
+                            { "type": "Text", "text": "{{voyager.v2.name}}", "size": 20, "font": "bold", "color": "{{voyager.v2.color}}", "height": 30 },
+                            { "type": "Text", "text": "{{voyager.v2.distance}}", "size": 40, "font": "bold", "height": 56 },
+                            { "type": "Text", "text": "{{voyager.v2.signal}}", "size": 17, "color": "#AAB4CC", "height": 26 }
+                        ]
+                    }
+                ]
+            },
+            { "type": "Spacer", "height": 10 },
+            { "type": "SolarSystem", "name": "Układ Słoneczny 3D", "probes": "{{voyager.probes}}", "planets": "{{voyager.planets}}" }
+        ]
+    }
+}

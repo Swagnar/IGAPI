@@ -1,0 +1,43 @@
+{
+    "label": "Grzybobranie",
+    "sources": ["mushrooms"],
+    "body": {
+        "type": "Stack",
+        "name": "Grzybobranie",
+        "children": [
+            { "type": "Spacer", "height": 30 },
+            { "type": "Text", "text": "Grzybobranie · szanse na dziś, {{mushrooms.dateText}}", "size": 24, "color": "#8899CC", "height": 40 },
+            { "type": "Text", "text": "{{mushrooms.bestText}}", "size": 40, "font": "bold", "color": "{{mushrooms.bestColor}}", "height": 60 },
+            {
+                "type": "Text",
+                "name": "Werdykt",
+                "text": "{{variant}}",
+                "size": 22,
+                "color": "#E2E8F0",
+                "height": 34,
+                "variants": {
+                    "by": "mushrooms.avgScore",
+                    "ranges": [
+                        { "from": 70, "texts": ["Wysyp! Koszyk to za mało, bierz wiadro", "Cała Polska w lesie"] },
+                        { "from": 45, "texts": ["Warto jechać do lasu", "Prawdziwki się szykują"] },
+                        { "from": 25, "texts": ["Coś się znajdzie, ale bez szału", "Na jajecznicę wystarczy"] },
+                        { "from": 10, "texts": ["Same muchomory", "Szkoda benzyny"] },
+                        { "texts": ["W lesie pusto jak w portfelu", "Grzyby poszły spać"] }
+                    ]
+                }
+            },
+            { "type": "Text", "text": "{{mushrooms.conditions}}", "size": 18, "color": "#8C9AB8", "height": 30 },
+            { "type": "Text", "text": "Szansa z deszczu z 2 tygodni, temperatury z tygodnia i przymrozków", "size": 16, "color": "#556688", "height": 28 },
+            {
+                "type": "HeatMap",
+                "name": "Mapa lasów",
+                "points": "{{mushrooms.points}}",
+                "area": "poland",
+                "palette": "{{mushrooms.palette}}",
+                "view": "{{mushrooms.view}}",
+                "labelSize": 18,
+                "subSize": 14
+            }
+        ]
+    }
+}

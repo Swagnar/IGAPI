@@ -1,0 +1,136 @@
+<!doctype html>
+<html lang="pl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+    <meta name="theme-color" content="#14161a">
+    <title>swagnar.dev — codzienne story w liczbach</title>
+    <meta name="description" content="Codzienne story na Instagramie: wszystkie slajdy, pluginy i źródła danych w jednym miejscu.">
+    <link rel="canonical" href="https://swagnar.dev/">
+    <meta property="og:title" content="swagnar.dev — codzienne story w liczbach">
+    <meta property="og:description" content="Wszystkie slajdy, pluginy i źródła danych z codziennego story.">
+    <meta property="og:url" content="https://swagnar.dev/">
+    <meta property="og:type" content="website">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@700;800;900&family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<a class="skip" href="#main">Przejdź do treści</a>
+
+<!-- Postęp przewijania — segment na sekcję, jak paski w story na Instagramie -->
+<div class="progress" id="progress" aria-hidden="true"><span></span><span></span><span></span><span></span></div>
+
+<header class="topbar" id="topbar">
+    <a class="brand" href="#top" aria-label="swagnar.dev — początek strony">
+        <span class="brand-mark" aria-hidden="true"></span>
+        <span>swagnar<span class="brand-tld">.dev</span></span>
+    </a>
+    <nav class="topnav" aria-label="Sekcje">
+        <a href="#slajdy">Slajdy</a>
+        <a href="#pluginy">Pluginy</a>
+        <a href="#jak">Jak to działa</a>
+    </nav>
+    <span class="clock" id="clock" aria-hidden="true"></span>
+    <a class="btn btn-ghost" href="https://instagram.com/" rel="noopener" data-cursor="Instagram ↗">
+        <i data-lucide="instagram"></i><span>Instagram</span>
+    </a>
+</header>
+
+<main id="main">
+    <!-- Hero: talia slajdów rozkłada się w wachlarz, gdy hero odjeżdża w górę (--p od 0 do 1) -->
+    <section class="hero" id="top" aria-labelledby="hero-title">
+        <!-- Zdjęcie: NASA, ISS072-E-820937 (cyklon nad Zatoką Alaską), domena publiczna; tu w skali szarości.
+             Poza .hero-sticky, bo ten na desktopie ma max-width — zdjęcie ma iść na całą szerokość okna -->
+        <div class="hero-photo" aria-hidden="true"><img src="img/hero-960.jpg" srcset="img/hero-960.jpg 960w, img/hero-1920.jpg 1920w" sizes="100vw" alt="" fetchpriority="high"></div>
+        <div class="hero-sticky">
+            <div class="hero-copy">
+                <p class="eyebrow"><span id="issue">Wydanie</span><span class="rule" aria-hidden="true"></span><span id="today-date">dzisiejsze story</span></p>
+                <h1 id="hero-title">Świat <em>w</em> liczbach</h1>
+                <p class="flaps" aria-label="Codziennie o 6:00"><span class="label" aria-hidden="true">Codziennie o</span><span class="flap" style="--d:0" aria-hidden="true">0</span><span class="flap" style="--d:1" aria-hidden="true">6</span><span class="flap-colon" aria-hidden="true">:</span><span class="flap" style="--d:2" aria-hidden="true">0</span><span class="flap" style="--d:3" aria-hidden="true">0</span></p>
+                <p class="countdown" id="countdown" hidden><span class="label">Następne wydanie za</span><b id="countdown-time">--:--:--</b><span class="countdown-bar" aria-hidden="true"></span></p>
+            </div>
+            <div class="deck" id="deck" aria-label="Slajdy z dzisiejszego story"></div>
+            <p class="scroll-cue" aria-hidden="true">Przewiń<span></span></p>
+        </div>
+    </section>
+
+    <!-- Manifest: słowa rozświetlają się w miarę przewijania -->
+    <section class="manifesto" aria-label="O projekcie">
+        <p id="manifesto">Każdego ranka automat pobiera dane z dwudziestu kilku źródeł — od NASA po Steam — zamienia je w mapy i wykresy i publikuje jako story. Tu zobaczysz każdy slajd z bliska i wszystko, co może się na nim pojawić.</p>
+    </section>
+
+    <section id="slajdy" class="section" aria-labelledby="slides-title">
+        <header class="section-head" data-scroll data-n="01">
+            <span class="kicker">§ 01</span>
+            <h2 id="slides-title">Slajdy</h2>
+            <p>W kolejności publikacji. Część bloków losuje się codziennie z puli.</p>
+        </header>
+        <ol class="slides" id="slides"></ol>
+    </section>
+
+    <section id="pluginy" class="section" aria-labelledby="plugins-title">
+        <header class="section-head" data-scroll data-n="02">
+            <span class="kicker">§ 02</span>
+            <h2 id="plugins-title">Pluginy</h2>
+            <p>Każdy blok danych, który może trafić na slajd. Dotknij, aby zobaczyć szczegóły.</p>
+        </header>
+
+        <div class="toolbar">
+            <div class="segmented" role="tablist" aria-label="Filtruj pluginy" id="filters"></div>
+            <label class="search">
+                <i data-lucide="search"></i>
+                <span class="visually-hidden">Szukaj pluginu</span>
+                <input type="search" id="search" placeholder="Szukaj — pogoda, NASA, bitcoin" autocomplete="off">
+            </label>
+        </div>
+
+        <ul class="plugins" id="plugins"></ul>
+        <p class="empty" id="plugins-empty" hidden>Nic nie pasuje do wyszukiwania.</p>
+    </section>
+
+    <div class="ticker" data-scroll aria-hidden="true"><div class="ticker-row" id="ticker-1"></div><div class="ticker-row" id="ticker-2"></div></div>
+
+    <section id="jak" class="section" aria-labelledby="how-title">
+        <header class="section-head" data-scroll data-n="03">
+            <span class="kicker">§ 03</span>
+            <h2 id="how-title">Jak to działa</h2>
+        </header>
+        <ol class="timeline" id="timeline">
+            <li data-scroll><span class="tl-time">06:00</span><h3>Dane</h3><p>CRON pobiera dane: zamkniętą wczorajszą dobę, prognozy na dziś, świeże pomiary.</p></li>
+            <li data-scroll><span class="tl-time">06:02</span><h3>Render</h3><p>Szablony w JSON zamieniają liczby na mapy, wykresy i listy w formacie 1080×1920.</p></li>
+            <li data-scroll><span class="tl-time">06:05</span><h3>Publikacja</h3><p>Gotowe slajdy trafiają na Instagram przez Graph API — bez ręcznej roboty.</p></li>
+        </ol>
+    </section>
+</main>
+
+<p class="wordmark" data-scroll aria-hidden="true"><span class="wm-line">swagnar<span>.</span>dev</span><span class="wm-fill">swagnar<span>.</span>dev</span></p>
+
+<footer class="footer">
+    <div class="footer-top">
+        <a class="brand" href="#top"><span class="brand-mark" aria-hidden="true"></span><span>swagnar<span class="brand-tld">.dev</span></span></a>
+        <p>Story generowane automatycznie. Dane należą do ich autorów.</p>
+    </div>
+    <p class="credits"><span class="credits-label">Źródła</span><span id="credits"></span></p>
+    <p class="credits"><span class="credits-label">Zdjęcie</span><span>NASA · cyklon nad Zatoką Alaską widziany z ISS (ISS072-E-820937)</span></p>
+</footer>
+
+<!-- Pływający pasek nawigacji na telefonach -->
+<nav class="tabbar" aria-label="Nawigacja">
+    <a href="#top"><i data-lucide="smartphone"></i><span>Dziś</span></a>
+    <a href="#slajdy"><i data-lucide="layers"></i><span>Slajdy</span></a>
+    <a href="#pluginy"><i data-lucide="layout-grid"></i><span>Pluginy</span></a>
+    <a href="#jak"><i data-lucide="info"></i><span>Info</span></a>
+</nav>
+
+<dialog class="sheet" id="sheet" aria-labelledby="sheet-title">
+    <div class="sheet-grip" aria-hidden="true"></div>
+    <button class="sheet-close" id="sheet-close" aria-label="Zamknij"><i data-lucide="x"></i></button>
+    <div id="sheet-body"></div>
+</dialog>
+
+<script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,13 @@
+{
+    "label": "NBP — średni kurs euro",
+    "credit": "NBP",
+    "url": "https://api.nbp.pl/api/exchangerates/rates/a/eur/",
+    "params": { "format": "json" },
+    "fields": {
+        "rate": "rates.0.mid",
+        "date": "rates.0.effectiveDate",
+        "currency": "currency"
+    },
+    "maxFallbackAge": 259200,
+    "docs": "https://api.nbp.pl/"
+}

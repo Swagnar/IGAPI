@@ -1,0 +1,15 @@
+{
+    "label": "Zdjęcie z Curiosity",
+    "size": "{{curiosity.size}}",
+    "sources": ["curiosity"],
+    "body": {
+        "type": "Stack",
+        "name": "Zdjęcie z Curiosity",
+        "when": "curiosity",
+        "children": [
+            { "type": "Text", "text": "Zdjęcie dnia z Curiosity", "size": 28, "font": "bold", "height": 60 },
+            { "type": "Spacer", "height": 20 },
+            { "type": "Photo", "url": "{{curiosity.preview}}", "caption": "{{curiosity.caption}}", "captionSize": 20, "captionColor": "#AAAAAA", "captionFont": "regular" }
+        ]
+    }
+}

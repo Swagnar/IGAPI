@@ -1,0 +1,32 @@
+{
+    "label": "Lawiny w Tatrach",
+    "size": 1,
+    "sources": ["avalanche"],
+    "body": {
+        "type": "Stack",
+        "name": "Lawiny w Tatrach",
+        "children": [
+            { "type": "Text", "text": "Lawiny w Tatrach · {{avalanche.issuedText}}", "size": 24, "color": "#8899CC", "height": 40 },
+            {
+                "type": "Columns",
+                "weights": [2, 3],
+                "gap": 20,
+                "children": [
+                    { "type": "Gauge", "value": "{{avalanche.level}}", "min": 0.5, "max": 5.5, "scale": false, "zones": "{{avalanche.zones}}", "maxHeight": 260 },
+                    {
+                        "type": "Stack",
+                        "name": "Opis",
+                        "children": [
+                            { "type": "Spacer", "height": 14 },
+                            { "type": "Text", "text": "{{avalanche.levelText}}", "size": 30, "font": "bold", "color": "{{avalanche.levelColor}}", "height": 48 },
+                            { "type": "WrappedText", "text": "{{avalanche.adviceText}}", "size": 18, "color": "#AAB4CC", "lineHeight": 26 },
+                            { "type": "Spacer", "height": 8 },
+                            { "type": "WrappedText", "when": "avalanche.zoneText", "text": "{{avalanche.zoneText}}", "size": 18, "lineHeight": 26 },
+                            { "type": "Text", "when": "avalanche.nextText", "text": "{{avalanche.nextText}}", "size": 18, "color": "#8C9AB8", "height": 30 }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+}

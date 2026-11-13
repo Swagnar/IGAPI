@@ -9,6 +9,9 @@ class GdImageHelper {
 
     public const path = ROOT_DIR . '/debug';
 
+    /** Ustawione → loadRemoteImage trzyma pobrane obrazki na dysku (edytor: szybki podgląd). CRON zawsze pobiera. */
+    public static ?string $remoteImageCacheDir = null;
+
     static public function centerText(
         GdImage $img, 
         string $text, 
@@ -185,10 +188,19 @@ class GdImageHelper {
             ],
         ]);
 
-        $data = @file_get_contents($url, false, $context);
+        $cacheFile = self::$remoteImageCacheDir !== null ? self::$remoteImageCacheDir . '/' . md5($url) : null;
+        $data      = $cacheFile !== null && is_file($cacheFile) ? file_get_contents($cacheFile) : false;
+
         if ($data === false) {
-            Console::debug("Nie udało się pobrać obrazka: {$url}");
-            return null;
+            $data = @file_get_contents($url, false, $context);
+            if ($data === false) {
+                Console::debug("Nie udało się pobrać obrazka: {$url}");
+                return null;
+            }
+            if ($cacheFile !== null) {
+                @mkdir(dirname($cacheFile), 0775, true);
+                file_put_contents($cacheFile, $data);
+            }
         }
 
         $image = @imagecreatefromstring($data);

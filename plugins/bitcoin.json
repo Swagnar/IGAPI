@@ -1,0 +1,16 @@
+{
+    "label": "Bitcoin",
+    "sources": ["bitcoin"],
+    "body": {
+        "type": "Stack",
+        "name": "Bitcoin",
+        "children": [
+            { "type": "Spacer", "height": 30 },
+            { "type": "Text", "text": "₿  Bitcoin", "size": 24, "color": "#8899CC", "height": 40 },
+            { "type": "Text", "text": "{{bitcoin.priceText}}", "size": 48, "font": "bold", "height": 70 },
+            { "type": "Text", "when": "bitcoin.changeText", "text": "{{bitcoin.changeText}}", "size": 22, "color": "{{bitcoin.changeColor}}", "height": 36 },
+            { "type": "Spacer", "height": 30 },
+            { "type": "LineChart", "points": "{{bitcoin.points}}", "formatY": "${v}", "formatX": "d.m.Y", "emptyText": "Brak danych historycznych" }
+        ]
+    }
+}

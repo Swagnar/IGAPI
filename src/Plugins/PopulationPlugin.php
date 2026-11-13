@@ -7,11 +7,6 @@ use Swagnar\Igapi\Http\JsonClient;
 
 use Swagnar\Igapi\Helper\Console;
 
-use Swagnar\Igapi\Layout\BarChart;
-use Swagnar\Igapi\Layout\Component;
-use Swagnar\Igapi\Layout\Spacer;
-use Swagnar\Igapi\Layout\Stack;
-use Swagnar\Igapi\Layout\Text;
 
 class PopulationPlugin extends AbstractPlugin
 {
@@ -27,6 +22,8 @@ class PopulationPlugin extends AbstractPlugin
         return 'Populacja';
     }
 
+    public function getCredit(): string { return 'Bank Światowy'; }
+
     public function fetchData(): array
     {
         return [
@@ -35,23 +32,18 @@ class PopulationPlugin extends AbstractPlugin
         ];
     }
 
-    protected function content(array $data): Component
+    /** Pola dla plugins/population.json: liczba ludzi i wiersze wykresu z flagami. */
+    public function present(array $data): array
     {
-        $rows = array_map(fn($country) => [
-            'label'      => $country['name'],
-            'value'      => $country['population'],
-            'valueLabel' => number_format((int)($country['population'] / 1_000_000), 0, ',', ' ') . ' mln',
-            'icon'       => "https://flagcdn.com/32x24/{$country['code']}.png",
-        ], $data['countries']);
-
-        // Nagłówek w tym samym stylu co BitcoinPlugin — oba pluginy dzielą planszę ŚWIAT
-        return (new Stack())
-            ->add(new Spacer(30))
-            ->add(new Text('Ilu nas jest?', size: 24, color: '#8899CC', font: FONT, height: 40))
-            ->add(new Text(number_format($data['population'], 0, ',', ' '), size: 48, color: '#FFFFFF', font: FONT_BOLD, height: 70))
-            ->add(new Text('ludzi na Ziemi (szacunek)', size: 22, color: '#AAAAAA', font: FONT, height: 36))
-            ->add(new Spacer(30))
-            ->add(new BarChart($rows));
+        return [
+            'populationText' => number_format($data['population'], 0, ',', ' '),
+            'rows'           => array_map(fn($country) => [
+                'label'      => $country['name'],
+                'value'      => $country['population'],
+                'valueLabel' => number_format((int) ($country['population'] / 1_000_000), 0, ',', ' ') . ' mln',
+                'icon'       => "https://flagcdn.com/32x24/{$country['code']}.png",
+            ], $data['countries']),
+        ] + $data;
     }
 
     private function getWorldPopulationNumber(): int {

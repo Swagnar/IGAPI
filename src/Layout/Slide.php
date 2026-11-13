@@ -6,13 +6,13 @@ use Swagnar\Igapi\Helper\GdImageHelper;
 use GdImage;
 
 /**
- * Szkielet Story 1080×1920: tło, tytuł (+ opcjonalny podtytuł), obszar treści i stopka.
+ * Szkielet Story 1080×1920: tło (Theme), tytuł (+ opcjonalny podtytuł), obszar treści i stopka.
  *
  *   $slide = new Slide('MARS', footer: Slide::source('Źródło: NASA'));
  *   $slide->render($body);
  *   [$path, $url] = $slide->save('mars');
  *
- * Tytuł i stopka są rysowane dopiero w save(), więc zawsze leżą nad tym, co narysowano na canvasie
+ * Tytuł i stopka są rysowane dopiero w save() lub png(), więc zawsze leżą nad tym, co narysowano na canvasie
  * bezpośrednio (np. tło z kropek w PalestineModule).
  */
 final class Slide
@@ -20,6 +20,12 @@ final class Slide
     private const TITLE_BASELINE    = 150;
     private const SUBTITLE_BASELINE = 200;
     private const SIDE_MARGIN       = 40;
+
+    /** Wysokość treści slajdu z tytułem (bez podtytułu) i domyślną stopką 80 px — tyle dzieli VerticalSplit na ćwiartki */
+    public const CONTENT_HEIGHT = HEIGHT - self::TITLE_BASELINE - 20 - 80;
+
+    /** Szerokość treści slajdu */
+    public const CONTENT_WIDTH = WIDTH - 2 * self::SIDE_MARGIN;
 
     private readonly GdImage $img;
 
@@ -30,6 +36,7 @@ final class Slide
         private readonly int $footerHeight = 80,
     ) {
         $this->img = GdImageHelper::createCanvas(WIDTH, HEIGHT);
+        Theme::background($this->img);
     }
 
     /** Domyślna, wycentrowana stopka ze źródłem danych. */
@@ -66,8 +73,29 @@ final class Slide
     /** @return array{0: string, 1: string} [ścieżka, URL] */
     public function save(string $name): array
     {
+        $this->drawChrome();
+        return GdImageHelper::saveImage($this->img, $name, PUBLIC_DIR, PUBLIC_URL);
+    }
+
+    /** Gotowy slajd jako bajty PNG, bez zapisu na dysk — dla podglądu w edytorze. */
+    public function png(): string
+    {
+        $this->drawChrome();
+        ob_start();
+        imagepng($this->img, null, 1);
+        imagedestroy($this->img);
+        return (string) ob_get_clean();
+    }
+
+    private function drawChrome(): void
+    {
         if ($this->title !== null) {
-            GdImageHelper::centerText($this->img, $this->title, self::TITLE_BASELINE, HEADER_SIZE, '#FFFFFF', FONT_BOLD);
+            // Długi tytuł (np. nazwa pluginu w podglądzie) zmniejszamy, aż zmieści się między marginesami
+            $size = HEADER_SIZE;
+            while ($size > 36 && GdImageHelper::textWidth($this->title, $size, FONT_BOLD) > imagesx($this->img) - 2 * self::SIDE_MARGIN) {
+                $size -= 2;
+            }
+            GdImageHelper::centerText($this->img, $this->title, self::TITLE_BASELINE, $size, '#FFFFFF', FONT_BOLD);
         }
         if ($this->subtitle !== null) {
             GdImageHelper::centerText($this->img, $this->subtitle, self::SUBTITLE_BASELINE, 24, '#FFFFFF', FONT);
@@ -78,7 +106,5 @@ final class Slide
             width:  WIDTH - 2 * self::SIDE_MARGIN,
             height: $this->footerHeight,
         ));
-
-        return GdImageHelper::saveImage($this->img, $name, PUBLIC_DIR, PUBLIC_URL);
     }
 }

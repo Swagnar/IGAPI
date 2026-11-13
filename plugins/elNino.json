@@ -1,0 +1,34 @@
+{
+    "label": "El Niño",
+    "size": 1,
+    "sources": ["elNino"],
+    "body": {
+        "type": "Stack",
+        "name": "El Niño",
+        "children": [
+            { "type": "Text", "text": "El Niño · Pacyfik, {{elNino.dateText}}", "size": 24, "color": "#8899CC", "height": 40 },
+            {
+                "type": "Columns",
+                "weights": [2, 3],
+                "gap": 20,
+                "children": [
+                    {
+                        "type": "Stack",
+                        "name": "Anomalia",
+                        "children": [
+                            { "type": "Spacer", "height": 14 },
+                            { "type": "Text", "text": "{{elNino.valueText}}", "size": 48, "font": "bold", "color": "{{elNino.valueColor}}", "height": 70 },
+                            { "type": "Spacer", "height": 6 },
+                            { "type": "WrappedText", "text": "{{elNino.phaseText}}", "size": 22, "lineHeight": 30 },
+                            { "type": "Spacer", "height": 8 },
+                            { "type": "WrappedText", "text": "{{elNino.compareText}}", "size": 18, "color": "#8C9AB8", "lineHeight": 26 },
+                            { "type": "Spacer", "height": 12 },
+                            { "type": "WrappedText", "text": "temperatura oceanu vs norma 1991–2020, środek Pacyfiku (Niño 3.4)", "size": 15, "color": "#556688", "lineHeight": 21 }
+                        ]
+                    },
+                    { "type": "ColumnChart", "bars": "{{elNino.bars}}", "formatY": "{v}°", "labelColor": "#556688" }
+                ]
+            }
+        ]
+    }
+}

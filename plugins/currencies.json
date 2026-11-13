@@ -1,0 +1,30 @@
+{
+    "label": "Koszyk walut",
+    "sources": ["currencies"],
+    "body": {
+        "type": "Stack",
+        "name": "Koszyk walut",
+        "children": [
+            { "type": "Spacer", "height": 30 },
+            { "type": "Text", "text": "Kursy walut NBP · {{currencies.dateText}}", "size": 24, "color": "#8899CC", "height": 40 },
+            { "type": "Text", "text": "{{currencies.headline}}", "size": 40, "font": "bold", "height": 62 },
+            { "type": "Text", "text": "{{currencies.moverText}}", "size": 20, "color": "{{currencies.moverColor}}", "height": 34 },
+            { "type": "Spacer", "height": 10 },
+            {
+                "type": "Table",
+                "rows": "{{currencies.rows}}",
+                "align": ["left", "left", "right", "right", "right"],
+                "bold": [0],
+                "flex": 1,
+                "size": 19,
+                "rowHeight": 30,
+                "gap": 18
+            },
+            { "type": "Text", "text": "kurs średni · zmiana od poprzedniego notowania · w rok (czerwone — złoty słabszy)", "size": 15, "color": "#667799", "height": 26 },
+            { "type": "Spacer", "height": 10 },
+            { "type": "Text", "text": "Dolar w złotych · ostatni rok", "size": 16, "color": "#556688", "height": 24 },
+            { "type": "Spacer", "height": 14 },
+            { "type": "LineChart", "points": "{{currencies.charts.USD}}", "formatY": "{v} zł", "formatX": "m.Y", "decimals": 2 }
+        ]
+    }
+}

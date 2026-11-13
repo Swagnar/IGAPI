@@ -1,0 +1,47 @@
+{
+    "label": "ISS nad Polską",
+    "sources": ["iss"],
+    "body": {
+        "type": "Stack",
+        "name": "ISS nad Polską",
+        "children": [
+            { "type": "Text", "text": "{{iss.headline}}", "size": 24, "color": "#8899CC", "height": 40 },
+            { "type": "Text", "text": "{{iss.timeText}}", "size": 48, "font": "bold", "height": 70 },
+            { "type": "Text", "text": "{{iss.subline}}", "size": 22, "color": "#7DD3FC", "height": 36 },
+            {
+                "type": "Stack",
+                "name": "Wszystkie przeloty",
+                "when": "iss.rows",
+                "children": [
+                    { "type": "Spacer", "height": 10 },
+                    {
+                        "type": "Table",
+                        "rows": "{{iss.rows}}",
+                        "flex": 2,
+                        "size": 20,
+                        "color": "#D0D8EA",
+                        "bold": [1]
+                    }
+                ]
+            },
+            { "type": "Spacer", "height": 10 },
+            { "type": "Text", "text": "Ślad stacji · jasny odcinek — widać ją wtedy gołym okiem", "size": 16, "color": "#556688", "height": 30 },
+            {
+                "type": "HeatMap",
+                "name": "Mapa przelotu",
+                "points": [],
+                "area": "poland",
+                "land": "europe:!",
+                "palette": [
+                    [
+                        0,
+                        [0, 0, 0],
+                        127
+                    ]
+                ],
+                "view": "{{iss.view}}",
+                "paths": "{{iss.paths}}"
+            }
+        ]
+    }
+}

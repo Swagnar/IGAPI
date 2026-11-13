@@ -1,0 +1,49 @@
+{
+    "label": "Najbliższy start rakiety",
+    "sources": ["launch"],
+    "body": {
+        "type": "Stack",
+        "name": "Start rakiety",
+        "children": [
+            { "type": "Text", "text": "Najbliższy start rakiety", "size": 24, "color": "#8899CC", "height": 44 },
+            {
+                "type": "Columns",
+                "name": "Rakieta i zdjęcie",
+                "weights": [3, 2],
+                "gap": 24,
+                "children": [
+                    {
+                        "type": "Stack",
+                        "name": "Rakieta",
+                        "children": [
+                            { "type": "WrappedText", "text": "{{launch.rocket}}", "size": 40, "font": "bold", "lineHeight": 52 },
+                            { "type": "Spacer", "height": 8 },
+                            { "type": "WrappedText", "text": "{{launch.missionLine}}", "size": 22, "lineHeight": 32 },
+                            { "type": "Spacer", "height": 6 },
+                            { "type": "Text", "text": "{{launch.whenText}}", "size": 22, "color": "#FBBF24", "height": 36 },
+                            { "type": "WrappedText", "text": "{{launch.placeText}}", "size": 18, "color": "#8C9AB8", "lineHeight": 26 }
+                        ]
+                    },
+                    { "type": "Photo", "url": "{{launch.image}}", "maxHeight": 300, "minHeight": 120 }
+                ]
+            },
+            { "type": "Spacer", "height": 20 },
+            {
+                "type": "Stack",
+                "name": "Kolejne starty",
+                "when": "launch.nextRows",
+                "children": [
+                    { "type": "Text", "text": "Kolejne starty", "size": 20, "color": "#8899CC", "height": 34 },
+                    {
+                        "type": "Table",
+                        "rows": "{{launch.nextRows}}",
+                        "flex": 1,
+                        "size": 20,
+                        "color": "#D0D8EA",
+                        "bold": [0]
+                    }
+                ]
+            }
+        ]
+    }
+}

@@ -1,0 +1,29 @@
+{
+    "label": "Kosmos",
+    "title": "KOSMOS",
+    "footer": "Źródło: {{credits}}",
+    "body": {
+        "type": "VerticalSplit",
+        "gap": 40,
+        "children": [
+            {
+                "type": "VerticalSplit",
+                "name": "Pula",
+                "order": "daily",
+                "pick": 1,
+                "gap": 40,
+                "children": [
+                    { "type": "Plugin", "plugin": "curiosity" },
+                    { "type": "Plugin", "plugin": "launch" },
+                    { "type": "Plugin", "plugin": "iss" },
+                    { "type": "Plugin", "plugin": "satellites" },
+                    { "type": "Plugin", "plugin": "voyager" },
+                    { "type": "Plugin", "plugin": "planets" },
+                    { "type": "Plugin", "plugin": "solarCycle" },
+                    { "type": "Plugin", "plugin": "flatEarth" }
+                ]
+            },
+            { "type": "Plugin", "plugin": "asteroids" }
+        ]
+    }
+}

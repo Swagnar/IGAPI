@@ -1,0 +1,24 @@
+{
+    "label": "Asteroidy",
+    "size": 1,
+    "sources": ["asteroids"],
+    "body": {
+        "type": "Stack",
+        "name": "Asteroidy",
+        "when": "asteroids",
+        "children": [
+            { "type": "Spacer", "height": 30 },
+            { "type": "Text", "text": "{{asteroids.header}}", "size": 28, "font": "bold", "height": 40 },
+            {
+                "type": "Stack",
+                "when": "asteroids.closest",
+                "children": [
+                    { "type": "Text", "text": "Najbardziej zbliżyła się {{asteroids.closest.name}} na odległość:", "size": 22, "color": "#AAAAAA", "height": 38 },
+                    { "type": "Text", "text": "{{asteroids.closest.distanceText}}", "size": 32, "color": "#88CCFF", "font": "bold", "height": 55 },
+                    { "type": "Spacer", "height": 10 },
+                    { "type": "MoonBar", "moonPercent": "{{asteroids.closest.moonPercent}}", "indent": 0 }
+                ]
+            }
+        ]
+    }
+}

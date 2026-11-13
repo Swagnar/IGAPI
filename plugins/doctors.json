@@ -1,0 +1,39 @@
+{
+    "label": "Kolejki do lekarza",
+    "sources": ["doctors"],
+    "size": 1,
+    "body": {
+        "type": "Stack",
+        "name": "Kolejki do lekarza",
+        "children": [
+            { "type": "Text", "text": "Kolejki do lekarza · {{doctors.who}}", "size": 24, "color": "#8899CC", "height": 40 },
+            {
+                "type": "Columns",
+                "weights": [1, 1],
+                "gap": 20,
+                "children": [
+                    {
+                        "type": "Stack",
+                        "name": "Mediana",
+                        "children": [
+                            { "type": "Spacer", "height": 14 },
+                            { "type": "Text", "text": "{{doctors.medianText}}", "size": 48, "font": "bold", "color": "#FBBF24", "height": 70 },
+                            { "type": "Text", "text": "{{doctors.awaitingText}}", "size": 18, "color": "#AAB4CC", "height": 30 },
+                            { "type": "WrappedText", "text": "{{doctors.rangeText}}", "size": 17, "color": "#8C9AB8", "lineHeight": 24 }
+                        ]
+                    },
+                    {
+                        "type": "HeatMap",
+                        "name": "Mapa województw",
+                        "points": "{{doctors.points}}",
+                        "area": "poland",
+                        "palette": "{{doctors.palette}}",
+                        "view": [14.1, 24.2, 49, 54.9],
+                        "labelSize": 16,
+                        "subSize": 13
+                    }
+                ]
+            }
+        ]
+    }
+}

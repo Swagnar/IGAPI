@@ -1,0 +1,27 @@
+{
+    "label": "Polska",
+    "title": "POLSKA",
+    "footer": "Źródło: {{credits}}",
+    "body": {
+        "type": "VerticalSplit",
+        "gap": 40,
+        "children": [
+            { "type": "Plugin", "plugin": "weather" },
+            {
+                "type": "VerticalSplit",
+                "name": "Pula",
+                "order": "daily",
+                "pick": 1,
+                "gap": 40,
+                "children": [
+                    { "type": "Plugin", "plugin": "polishGames" },
+                    { "type": "Plugin", "plugin": "planes" },
+                    { "type": "Plugin", "plugin": "mushrooms" },
+                    { "type": "Plugin", "plugin": "doctors" },
+                    { "type": "Plugin", "plugin": "avalanche" },
+                    { "type": "Plugin", "plugin": "trains" }
+                ]
+            }
+        ]
+    }
+}

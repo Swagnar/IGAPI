@@ -1,0 +1,22 @@
+{
+    "label": "Polskie gry na Steamie",
+    "sources": ["polishGames"],
+    "body": {
+        "type": "Stack",
+        "name": "Polskie gry",
+        "children": [
+            {
+                "type": "Columns",
+                "name": "Nagłówek",
+                "weights": [1, 1],
+                "gap": 0,
+                "children": [
+                    { "type": "Text", "text": "Polskie gry na Steamie", "size": 24, "color": "#8899CC", "height": 54 },
+                    { "type": "Text", "text": "wykres 30 dni · szczyt graczy z doby", "size": 15, "color": "#556688", "align": "right", "height": 54 }
+                ]
+            },
+            { "type": "Spacer", "height": 10 },
+            { "type": "SteamList", "games": "{{polishGames.games}}" }
+        ]
+    }
+}

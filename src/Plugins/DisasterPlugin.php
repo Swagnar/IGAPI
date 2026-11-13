@@ -31,6 +31,8 @@ class DisasterPlugin extends AbstractPlugin
 
     public function getLabel(): string { return 'Katastrofy'; }
 
+    public function getCredit(): string { return 'NASA EONET'; }
+
     public function fetchData(): array
     {
         Console::info('Pobieram aktywne zdarzenia z EONET...');

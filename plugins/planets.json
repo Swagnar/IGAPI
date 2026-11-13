@@ -1,0 +1,22 @@
+{
+    "label": "Układ planet dziś",
+    "sources": ["planets"],
+    "body": {
+        "type": "Stack",
+        "name": "Układ planet dziś",
+        "children": [
+            { "type": "Text", "text": "Układ planet · {{planets.dateText}}", "size": 28, "font": "bold", "height": 60 },
+            {
+                "type": "SolarSystem",
+                "name": "Układ Słoneczny",
+                "planets": "{{planets.planets}}",
+                "azimuth": "{{planets.azimuth}}",
+                "elevation": 40,
+                "rings": [1, 10, 30],
+                "heliopause": 0,
+                "radial": "log",
+                "maxHeight": 760
+            }
+        ]
+    }
+}

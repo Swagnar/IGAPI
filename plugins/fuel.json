@@ -1,0 +1,44 @@
+{
+    "label": "Ceny paliw",
+    "sources": ["fuel"],
+    "body": {
+        "type": "Stack",
+        "name": "Ceny paliw",
+        "children": [
+            { "type": "Spacer", "height": 30 },
+            { "type": "Text", "text": "Ceny paliw w Polsce · {{fuel.dateText}}", "size": 24, "color": "#8899CC", "height": 40 },
+            { "type": "Text", "text": "{{fuel.headline}}", "size": 44, "font": "bold", "height": 66 },
+            { "type": "Spacer", "height": 6 },
+            { "type": "WrappedText", "text": "{{fuel.rankText}}", "size": 19, "color": "#AAB4CC", "lineHeight": 27 },
+            { "type": "Spacer", "height": 10 },
+            { "type": "Table", "rows": "{{fuel.rows}}", "align": ["left", "right", "right", "right"], "bold": [0], "flex": 0, "size": 20, "rowHeight": 32, "gap": 30 },
+            { "type": "Text", "text": "średnio za litr · zmiana w tydzień · w rok", "size": 15, "color": "#667799", "height": 26 },
+            { "type": "Spacer", "height": 10 },
+            {
+                "type": "Columns",
+                "name": "Wykres i mapa",
+                "weights": [1, 1],
+                "gap": 24,
+                "children": [
+                    {
+                        "type": "Stack",
+                        "name": "Benzyna w roku",
+                        "children": [
+                            { "type": "Text", "text": "Benzyna 95 · ostatni rok", "size": 16, "color": "#556688", "height": 24 },
+                            { "type": "Spacer", "height": 8 },
+                            { "type": "LineChart", "points": "{{fuel.points}}", "formatY": "{v} zł", "formatX": "m.Y", "decimals": 2 }
+                        ]
+                    },
+                    {
+                        "type": "Stack",
+                        "name": "Europa",
+                        "children": [
+                            { "type": "Text", "text": "Benzyna 95 w UE, zł/l", "size": 16, "color": "#556688", "height": 24 },
+                            { "type": "HeatMap", "name": "Mapa cen", "points": "{{fuel.map.points}}", "area": "{{fuel.map.area}}", "palette": "{{fuel.map.palette}}", "view": "{{fuel.map.view}}", "land": "{{fuel.map.land}}", "projection": "laea", "labelSize": 14 }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+}

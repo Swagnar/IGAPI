@@ -1,0 +1,14 @@
+{
+    "label": "Cykl słoneczny",
+    "sources": ["solarCycle"],
+    "body": {
+        "type": "Stack",
+        "name": "Cykl słoneczny",
+        "children": [
+            { "type": "Text", "text": "{{solarCycle.valueText}} słonecznych", "size": 48, "font": "bold", "color": "#FBBF24", "height": 74 },
+            { "type": "Spacer", "height": 10 },
+            { "type": "Text", "text": "Liczba plam miesiąc po miesiącu · szare — prognoza NOAA", "size": 16, "color": "#556688", "height": 26 },
+            { "type": "ColumnChart", "bars": "{{solarCycle.bars}}", "formatY": "{v}" }
+        ]
+    }
+}

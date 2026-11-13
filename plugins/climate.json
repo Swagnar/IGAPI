@@ -1,0 +1,18 @@
+{
+    "label": "Temperatura Ziemi",
+    "sources": ["climate"],
+    "body": {
+        "type": "Stack",
+        "name": "Temperatura Ziemi",
+        "children": [
+            { "type": "Spacer", "height": 30 },
+            { "type": "Text", "text": "Temperatura Ziemi · {{climate.dateText}}", "size": 24, "color": "#8899CC", "height": 40 },
+            { "type": "Text", "text": "{{climate.tempText}}", "size": 48, "font": "bold", "height": 70 },
+            { "type": "Text", "text": "{{climate.anomalyText}}", "size": 22, "color": "{{climate.anomalyColor}}", "height": 36 },
+            { "type": "Text", "text": "{{climate.preindustrialText}}", "size": 18, "color": "#8C9AB8", "height": 30 },
+            { "type": "Spacer", "height": 20 },
+            { "type": "Text", "text": "{{climate.chartNote}}", "size": 16, "color": "#556688", "height": 24 },
+            { "type": "ColumnChart", "bars": "{{climate.bars}}", "formatY": "{v}°C", "decimals": 1, "labelEvery": 20 }
+        ]
+    }
+}

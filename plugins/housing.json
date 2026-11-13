@@ -1,0 +1,42 @@
+{
+    "label": "Ceny mieszkań",
+    "size": 1,
+    "sources": ["housing"],
+    "body": {
+        "type": "Stack",
+        "name": "Ceny mieszkań",
+        "children": [
+            { "type": "Text", "text": "Ceny mieszkań · {{housing.dateText}}", "size": 24, "color": "#8899CC", "height": 40 },
+            {
+                "type": "Columns",
+                "weights": [1, 1],
+                "gap": 20,
+                "children": [
+                    {
+                        "type": "Stack",
+                        "name": "Warszawa",
+                        "children": [
+                            { "type": "Spacer", "height": 14 },
+                            { "type": "Text", "text": "{{housing.warsawText}}", "size": 44, "font": "bold", "height": 66 },
+                            { "type": "Text", "text": "Warszawa, z drugiej ręki", "size": 20, "color": "#AAB4CC", "height": 34 },
+                            { "type": "Text", "when": "housing.changeText", "text": "{{housing.changeText}}", "size": 22, "font": "bold", "color": "{{housing.changeColor}}", "height": 40 },
+                            { "type": "WrappedText", "text": "{{housing.cheapestText}}", "size": 18, "color": "#8C9AB8", "lineHeight": 26 },
+                            { "type": "Spacer", "height": 12 },
+                            { "type": "WrappedText", "text": "średnia cena transakcyjna m² w miastach wojewódzkich", "size": 15, "color": "#556688", "lineHeight": 21 }
+                        ]
+                    },
+                    {
+                        "type": "HeatMap",
+                        "name": "Mapa cen",
+                        "points": "{{housing.points}}",
+                        "area": "poland",
+                        "palette": "{{housing.palette}}",
+                        "view": [14.1, 24.2, 49.0, 54.9],
+                        "labelSize": 16,
+                        "subSize": 13
+                    }
+                ]
+            }
+        ]
+    }
+}

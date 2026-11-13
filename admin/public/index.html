@@ -1,0 +1,106 @@
+<!doctype html>
+<html lang="pl">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>IGAPI Editor</title>
+    <link rel="stylesheet" href="/app.css">
+    <link href="instagram.png" rel="icon" type="image/png">
+</head>
+<body>
+<header class="topbar">
+    <strong class="brand">IGAPI</strong>
+    <select id="slide-select" aria-label="Slajd"></select>
+    <button id="new-slide-open" title="Nowy slajd albo plugin JSON">+ Nowy</button>
+    <button id="plan-open" title="Kolejność i włączone slajdy (stories.json)">Plan publikacji</button>
+    <span id="dirty" class="dirty" hidden>niezapisane zmiany</span>
+    <span class="spacer"></span>
+    <button id="undo" title="Cofnij (Ctrl+Z)">↶</button>
+    <button id="redo" title="Ponów (Ctrl+Shift+Z)">↷</button>
+    <button id="save" class="primary" title="Zapisz (Ctrl+S)">Zapisz</button>
+</header>
+
+<div id="banner" class="banner" hidden>
+    <span>Plik zmienił się na dysku (np. edycja z terminala), a masz niezapisane zmiany.</span>
+    <button id="banner-load">Wczytaj z dysku</button>
+    <button id="banner-keep">Zostaw moje</button>
+</div>
+
+<main class="layout">
+    <section class="panel tree-panel">
+        <div class="toolbar">
+            <select id="add-type" aria-label="Typ bloku"></select>
+            <button id="add" title="Dodaj blok (do kontenera albo za zaznaczonym)">+ Dodaj</button>
+            <button id="up" title="W górę">↑</button>
+            <button id="down" title="W dół">↓</button>
+            <button id="duplicate" title="Duplikuj">⧉</button>
+            <button id="remove" title="Usuń (Delete)">✕</button>
+        </div>
+        <ul id="tree" class="tree"></ul>
+    </section>
+
+    <section class="panel preview-panel">
+        <div id="stage" class="stage">
+            <img id="preview" alt="Podgląd slajdu">
+            <div id="overlay" class="overlay"></div>
+        </div>
+        <div id="status" class="status"></div>
+    </section>
+
+    <section class="panel props-panel">
+        <nav class="tabs">
+            <button data-tab="props" class="active">Właściwości</button>
+            <button data-tab="integrations">Integracje</button>
+        </nav>
+        <div id="tab-props">
+            <div id="props"></div>
+            <div id="data"></div>
+        </div>
+        <div id="tab-integrations" hidden>
+            <div id="integrations"></div>
+        </div>
+    </section>
+</main>
+
+<footer id="statusbar" class="statusbar">
+    <div id="statusbar-items" class="statusbar-items"></div>
+    <span class="spacer"></span>
+    <span id="statusbar-checked" class="statusbar-checked"></span>
+    <button id="statusbar-refresh" class="statusbar-refresh" title="Sprawdź teraz (token Meta, klucz NASA)">↻</button>
+</footer>
+
+<dialog id="plan" class="dialog">
+    <header><h3>Plan publikacji</h3><button id="plan-close" aria-label="Zamknij">✕</button></header>
+    <p class="empty">CRON publikuje włączone slajdy w tej kolejności (<code>stories.json</code>). Zmiany zapisują się od razu.</p>
+    <ol id="plan-list" class="plan-list"></ol>
+    <div id="plan-unplanned"></div>
+</dialog>
+
+<dialog id="new-slide" class="dialog">
+    <form id="new-slide-form" method="dialog">
+        <header><h3>Nowy dokument</h3><button type="button" id="new-slide-close" aria-label="Zamknij">✕</button></header>
+        <div class="field">
+            <label><span>rodzaj</span><span class="hint">plugin JSON wstawisz potem w slajdzie blokiem Plugin</span></label>
+            <select id="new-slide-kind">
+                <option value="slides">Slajd — slides/&lt;nazwa&gt;.json</option>
+                <option value="plugins">Plugin JSON — plugins/&lt;nazwa&gt;.json</option>
+            </select>
+        </div>
+        <div class="field required">
+            <label><span>nazwa pliku</span><span class="hint">litery, cyfry, - _</span></label>
+            <input id="new-slide-name" required pattern="[A-Za-z0-9_-]+" placeholder="np. dart">
+        </div>
+        <div class="field">
+            <label><span>tytuł</span><span class="hint">nagłówek slajdu albo etykieta pluginu</span></label>
+            <input id="new-slide-title" placeholder="np. OBRONA PLANETARNA">
+        </div>
+        <p class="empty" id="new-slide-note">Slajd trafi do planu publikacji jako wyłączony — włączysz go, gdy będzie gotowy.</p>
+        <p id="new-slide-error" class="error-text" hidden></p>
+        <footer><button type="submit" class="primary">Utwórz</button></footer>
+    </form>
+</dialog>
+
+<div id="toast" class="toast" hidden></div>
+<script src="/app.js"></script>
+</body>
+</html>

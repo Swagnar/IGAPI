@@ -1,0 +1,17 @@
+{
+    "label": "Populacja",
+    "enabled": false,
+    "sources": ["population"],
+    "body": {
+        "type": "Stack",
+        "name": "Populacja",
+        "children": [
+            { "type": "Spacer", "height": 30 },
+            { "type": "Text", "text": "Ilu nas jest?", "size": 24, "color": "#8899CC", "height": 40 },
+            { "type": "Text", "text": "{{population.populationText}}", "size": 48, "font": "bold", "height": 70 },
+            { "type": "Text", "text": "ludzi na Ziemi (szacunek)", "size": 22, "color": "#AAAAAA", "height": 36 },
+            { "type": "Spacer", "height": 30 },
+            { "type": "BarChart", "rows": "{{population.rows}}" }
+        ]
+    }
+}

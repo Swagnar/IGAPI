@@ -1,0 +1,41 @@
+{
+    "label": "Strach i chciwość",
+    "sources": ["fearGreed"],
+    "body": {
+        "type": "Stack",
+        "name": "Strach i chciwość",
+        "children": [
+            { "type": "Spacer", "height": 30 },
+            { "type": "Text", "text": "Strach i chciwość · rynek kryptowalut", "size": 24, "color": "#8899CC", "height": 40 },
+            { "type": "Spacer", "height": 14 },
+            {
+                "type": "Columns",
+                "weights": [1, 1],
+                "gap": 40,
+                "children": [
+                    { "type": "Gauge", "value": "{{fearGreed.value}}", "label": "{{fearGreed.zoneName}}", "zones": "{{fearGreed.zones}}", "maxHeight": 250 },
+                    {
+                        "type": "Stack",
+                        "name": "Porównanie",
+                        "children": [
+                            { "type": "Spacer", "height": 24 },
+                            { "type": "Text", "text": "Indeks z {{fearGreed.dateText}}", "size": 18, "color": "#8C9AB8", "height": 40 },
+                            {
+                                "type": "Table",
+                                "rows": "{{fearGreed.compare}}",
+                                "align": ["left", "right", "left"],
+                                "bold": [1],
+                                "size": 22,
+                                "rowHeight": 40,
+                                "gap": 20
+                            }
+                        ]
+                    }
+                ]
+            },
+            { "type": "Spacer", "height": 16 },
+            { "type": "Text", "text": "{{fearGreed.chartNote}}", "size": 16, "color": "#556688", "height": 24 },
+            { "type": "ColumnChart", "bars": "{{fearGreed.bars}}" }
+        ]
+    }
+}

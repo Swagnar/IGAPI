@@ -104,7 +104,7 @@ class InstagramPublisher
      *
      * Wygasłego tokenu nie da się odnowić przez API — trzeba wygenerować nowy: php token.php <krótki_token>
      *
-     * @return array{valid: bool, message: ?string, expiresAt: ?int}
+     * @return array{valid: bool, message: ?string, expiresAt: ?int, type?: string, scopes?: list<string>, dataAccessExpiresAt?: ?int}
      */
     public function checkTokenStatus(): array
     {
@@ -148,7 +148,15 @@ class InstagramPublisher
                 : Console::info($message);
         }
 
-        return ['valid' => true, 'message' => null, 'expiresAt' => $expiresAt];
+        return [
+            'valid'     => true,
+            'message'   => null,
+            'expiresAt' => $expiresAt,
+            'type'      => $type,
+            'scopes'    => $data['scopes'] ?? [],
+            // Nawet token bez daty wygaśnięcia traci dostęp do danych po ~90 dniach bez logowania użytkownika
+            'dataAccessExpiresAt' => isset($data['data_access_expires_at']) ? (int) $data['data_access_expires_at'] : null,
+        ];
     }
 
     private function graphGet(string $path): array

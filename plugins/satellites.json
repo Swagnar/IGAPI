@@ -1,0 +1,42 @@
+{
+    "label": "Satelity na orbicie",
+    "sources": ["satellites"],
+    "body": {
+        "type": "Stack",
+        "name": "Satelity na orbicie",
+        "children": [
+            { "type": "Text", "text": "Satelity na orbicie", "size": 24, "color": "#8899CC", "height": 40 },
+            { "type": "Text", "text": "{{satellites.totalText}}", "size": 48, "font": "bold", "height": 70 },
+            { "type": "Text", "text": "{{satellites.starlinkLine}}", "size": 22, "color": "#7DD3FC", "height": 36 },
+            { "type": "WrappedText", "text": "{{satellites.growthLine}}", "size": 18, "color": "#8C9AB8", "lineHeight": 26 },
+            { "type": "Spacer", "height": 20 },
+            {
+                "type": "Columns",
+                "name": "Wykres i tabele",
+                "weights": [3, 2],
+                "gap": 30,
+                "children": [
+                    {
+                        "type": "Stack",
+                        "name": "Rok startu",
+                        "children": [
+                            { "type": "Text", "text": "{{satellites.chartNote}}", "size": 15, "color": "#556688", "height": 26 },
+                            { "type": "ColumnChart", "bars": "{{satellites.bars}}", "labelEvery": 5, "color": "#7DD3FC" }
+                        ]
+                    },
+                    {
+                        "type": "Stack",
+                        "name": "Sieci i właściciele",
+                        "children": [
+                            { "type": "Text", "text": "Największe sieci", "size": 20, "color": "#8899CC", "height": 34 },
+                            { "type": "Table", "rows": "{{satellites.networkRows}}", "align": ["left", "right"], "flex": 0, "size": 19, "rowHeight": 30 },
+                            { "type": "Spacer", "height": 14 },
+                            { "type": "Text", "text": "Czyje", "size": 20, "color": "#8899CC", "height": 34 },
+                            { "type": "Table", "rows": "{{satellites.ownerRows}}", "align": ["left", "right"], "flex": 0, "size": 19, "rowHeight": 30 }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+}

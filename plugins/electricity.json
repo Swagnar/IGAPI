@@ -1,0 +1,66 @@
+{
+    "label": "Prąd w Europie",
+    "sources": ["electricity"],
+    "body": {
+        "type": "Stack",
+        "name": "Prąd w Europie",
+        "children": [
+            { "type": "Spacer", "height": 30 },
+            { "type": "Text", "text": "Prąd w Europie · {{electricity.dateText}}", "size": 24, "color": "#8899CC", "height": 40 },
+            { "type": "Text", "text": "{{electricity.headline}}", "size": 48, "font": "bold", "height": 70 },
+            { "type": "Text", "text": "{{electricity.subline}}", "size": 22, "color": "#AAAAAA", "height": 36 },
+            { "type": "Spacer", "height": 16 },
+            {
+                "type": "Columns",
+                "weights": [62, 38],
+                "gap": 24,
+                "children": [
+                    { "type": "HeatMap", "name": "Mapa cen", "points": "{{electricity.map.points}}", "area": "{{electricity.map.area}}", "palette": "{{electricity.map.palette}}", "view": "{{electricity.map.view}}", "land": "{{electricity.map.land}}", "projection": "laea", "labelSize": 16 },
+                    {
+                        "type": "Stack",
+                        "name": "Ranking",
+                        "children": [
+                            { "type": "Text", "text": "Najtaniej", "size": 20, "color": "#8899CC", "height": 34 },
+                            {
+                                "type": "Table",
+                                "rows": "{{electricity.cheapRows}}",
+                                "align": ["left", "right"],
+                                "flex": 0,
+                                "size": 19,
+                                "rowHeight": 30
+                            },
+                            { "type": "Spacer", "height": 14 },
+                            { "type": "Text", "text": "Najdrożej", "size": 20, "color": "#8899CC", "height": 34 },
+                            {
+                                "type": "Table",
+                                "rows": "{{electricity.pricyRows}}",
+                                "align": ["left", "right"],
+                                "flex": 0,
+                                "size": 19,
+                                "rowHeight": 30
+                            },
+                            {
+                                "type": "Stack",
+                                "when": "electricity.hourRows",
+                                "children": [
+                                    { "type": "Spacer", "height": 14 },
+                                    { "type": "Text", "text": "W Polsce dziś", "size": 20, "color": "#8899CC", "height": 34 },
+                                    {
+                                        "type": "Table",
+                                        "rows": "{{electricity.hourRows}}",
+                                        "align": ["left", "right"],
+                                        "flex": 0,
+                                        "size": 19,
+                                        "rowHeight": 30
+                                    }
+                                ]
+                            },
+                            { "type": "Spacer", "height": 10 },
+                            { "type": "Text", "text": "ceny hurtowe, €/MWh", "size": 15, "color": "#667799", "height": 26 }
+                        ]
+                    }
+                ]
+            }
+        ]
+    }
+}

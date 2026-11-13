@@ -1,0 +1,24 @@
+{
+    "label": "Trzęsienia ziemi",
+    "sources": ["earthquakes"],
+    "body": {
+        "type": "Stack",
+        "name": "Trzęsienia ziemi",
+        "children": [
+            { "type": "Spacer", "height": 30 },
+            { "type": "Text", "text": "Trzęsienia ziemi · ostatnia doba", "size": 24, "color": "#8899CC", "height": 40 },
+            { "type": "Text", "text": "{{earthquakes.count}}", "size": 48, "font": "bold", "height": 70 },
+            { "type": "Text", "text": "{{earthquakes.summary}}", "size": 22, "color": "#AAAAAA", "height": 36 },
+            { "type": "Spacer", "height": 16 },
+            { "type": "WorldMap", "markers": "{{earthquakes.markers}}", "inset": "{{earthquakes.focus}}" },
+            { "type": "Spacer", "height": 14 },
+            {
+                "type": "Table",
+                "rows": "{{earthquakes.top}}",
+                "align": ["right", "left", "left", "right"],
+                "flex": 2,
+                "bold": [1]
+            }
+        ]
+    }
+}

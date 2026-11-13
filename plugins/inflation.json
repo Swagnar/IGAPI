@@ -1,0 +1,42 @@
+{
+    "label": "Inflacja w Polsce",
+    "sources": ["inflation"],
+    "body": {
+        "type": "Stack",
+        "name": "Inflacja w Polsce",
+        "children": [
+            { "type": "Spacer", "height": 30 },
+            { "type": "Text", "text": "Inflacja w Polsce · {{inflation.monthText}}", "size": 24, "color": "#8899CC", "height": 40 },
+            { "type": "Text", "text": "{{inflation.valueText}}", "size": 48, "font": "bold", "color": "{{inflation.valueColor}}", "height": 74 },
+            { "type": "Text", "text": "{{inflation.targetText}}", "size": 20, "color": "#AAB4CC", "height": 34 },
+            { "type": "Spacer", "height": 10 },
+            {
+                "type": "Columns",
+                "name": "Kategorie i kraje",
+                "weights": [1, 1],
+                "gap": 40,
+                "children": [
+                    {
+                        "type": "Stack",
+                        "name": "Co drożeje",
+                        "children": [
+                            { "type": "Text", "text": "Co drożeje", "size": 18, "color": "#8899CC", "height": 30 },
+                            { "type": "Table", "rows": "{{inflation.catRows}}", "align": ["left", "right"], "flex": 0, "size": 18, "rowHeight": 28 }
+                        ]
+                    },
+                    {
+                        "type": "Stack",
+                        "name": "W Europie",
+                        "children": [
+                            { "type": "Text", "text": "W Europie", "size": 18, "color": "#8899CC", "height": 30 },
+                            { "type": "Table", "rows": "{{inflation.countryRows}}", "align": ["left", "right"], "flex": 0, "size": 18, "rowHeight": 28 }
+                        ]
+                    }
+                ]
+            },
+            { "type": "Spacer", "height": 10 },
+            { "type": "Text", "text": "Ostatnie 2 lata, r/r · zielone — w celu NBP · HICP (Eurostat)", "size": 16, "color": "#556688", "height": 26 },
+            { "type": "ColumnChart", "bars": "{{inflation.bars}}", "formatY": "{v}%", "decimals": 0 }
+        ]
+    }
+}

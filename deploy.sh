@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Deploy na hosting: wysyła bieżący kod (z working tree) do ~/IGAPI i instaluje zależności.
-# Dane produkcyjne — .env, btc_data.txt, wygenerowane obrazki — zostają nietknięte.
+# Deploy na hosting: wysyła bieżący kod (z working tree) do ~/IGAPI, instaluje zależności
+# i wgrywa stronę web/ do document root swagnar.dev (WEB_DIR z serwerowego .env, domyślnie ~/swagnar.dev).
+# Dane produkcyjne — .env, btc_data.txt, wygenerowane obrazki, web/data/ z porannego runu — zostają nietknięte.
 #
 #   ./deploy.sh            # deploy
 #   ./deploy.sh --run      # deploy + próbne uruchomienie w trybie debug (bez publikacji)
@@ -11,23 +12,24 @@ set -euo pipefail
 SSH_HOST="${SSH_HOST:-vh13519@v102.vh.net.pl}"
 SSH_KEY="${SSH_KEY:-$HOME/.ssh/id_ed25519}"
 REMOTE_DIR="${REMOTE_DIR:-IGAPI}"                       # względem katalogu domowego
-PUBLIC_DIR="${PUBLIC_DIR:-swagnar.dev/ig-stories}"      # document root swagnar.dev
+PUBLIC_DIR="${PUBLIC_DIR:-swagnar.dev/ig-stories}"      # obrazki story w document root swagnar.dev
+WEB_DIR="${WEB_DIR:-swagnar.dev}"                       # document root swagnar.dev — gdy .env na serwerze nie ma WEB_DIR
 PHP_BIN="${PHP_BIN:-/usr/local/bin/php}"
 
 cd "$(dirname "$0")"
 
 # Tylko to, czego skrypt potrzebuje w runtime
-FILES=(run.php token.php composer.json composer.lock Inter-Regular.ttf Inter-Bold.ttf .env.example src geo)
+FILES=(run.php collect-planes.php bootstrap.php stories.json token.php composer.json composer.lock Inter-Regular.ttf Inter-Bold.ttf .env.example src geo slides data sources plugins)
 
 ssh_remote() { ssh -o BatchMode=yes -i "$SSH_KEY" "$SSH_HOST" "$@"; }
 
 echo "==> Wysyłam kod do $SSH_HOST:~/$REMOTE_DIR"
-# src/ i geo/ podmieniamy w całości, żeby usunięte lokalnie pliki nie zostawały na serwerze
+# src/, geo/, slides/, data/, sources/ i plugins/ podmieniamy w całości, żeby usunięte lokalnie pliki nie zostawały na serwerze
 tar -czf - "${FILES[@]}" | ssh_remote "
     set -e
     mkdir -p ~/$REMOTE_DIR
     cd ~/$REMOTE_DIR
-    rm -rf src geo
+    rm -rf src geo slides data sources plugins
     tar -xzf -
 "
 
@@ -46,6 +48,19 @@ ssh_remote "
         echo 'UWAGA: .env nie ma DEBUG=false — CRON będzie działał w trybie debug (bez publikacji).' >&2
     fi
     touch btc_data.txt
+"
+
+# Ta sama ścieżka, której używa run.php: WEB_DIR z .env na serwerze, a bez niego ~/swagnar.dev (= ROOT_DIR/../swagnar.dev)
+WEB_PATH=$(ssh_remote "grep -E '^WEB_DIR=' ~/$REMOTE_DIR/.env | tail -n1 | cut -d= -f2- | tr -d \"'\\\"\r \"" || true)
+WEB_PATH="${WEB_PATH:-~/$WEB_DIR}"
+
+echo "==> Wysyłam stronę WWW do $SSH_HOST:$WEB_PATH"
+# Bez web/data/ — to eksport porannego runu na serwerze. Pliki nadpisujemy, nic nie kasujemy (w document root jest też ig-stories/)
+tar -czf - -C web --exclude=./data . | ssh_remote "
+    set -e
+    mkdir -p $WEB_PATH
+    cd $WEB_PATH
+    tar -xzf -
 "
 
 if [[ "${1:-}" == "--run" ]]; then

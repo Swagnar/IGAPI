@@ -18,6 +18,12 @@ use GdImage;
 
 class PalestineModule implements StoryModule
 {
+    /** Liczba dni bez zmiany, po której pole podziału (np. dziennikarze) uznajemy za nieaktualne i go nie pokazujemy */
+    private const STALE_DAYS = 30;
+
+    /** Wszystkie raporty dzienne — do proporcji dzieci/kobiet i sprawdzania, od kiedy pole się nie zmienia */
+    private array $reports = [];
+
     public function __construct(
         private readonly JsonClient $http,
     ){
@@ -31,6 +37,7 @@ class PalestineModule implements StoryModule
         
         Console::info("Rozpoczynam pobieranie danych z Tech for Palestine...");
         $dataResult       = $this->http->get($dataUrl);
+        $this->reports    = $dataResult;
         $yesterday  = (new DateTimeImmutable('yesterday'))->format('Y-m-d');
         
         // Raport z wczoraj
@@ -184,12 +191,18 @@ class PalestineModule implements StoryModule
         return $slide;
     }
 
-    /** Dzieci / kobiety / dziennikarze — tylko te pola, które są w raporcie. */
+    /**
+     * Dzieci / kobiety / dziennikarze. MZ w Gazie podaje podział rzadko, a pola ext_ w API stoją wtedy tygodniami.
+     * Dzieci i kobiety szacujemy jak strona Tech for Palestine: udział z ostatniego raportu z podziałem × dzisiejsza
+     * łączna liczba zabitych. Dziennikarzy nie da się tak przeliczyć — pomijamy ich, gdy liczba stoi dłużej niż STALE_DAYS.
+     */
     private function addBreakdown(Stack $body, array $report): void {
+        $date   = $report['report_date'] ?? '';
+        $killed = (int) ($report['ext_killed_cum'] ?? $report['killed_cum'] ?? 0);
         $rows = [
-            'w tym dzieci'  => $report['ext_killed_children_cum'] ?? null,
-            'w tym kobiety' => $report['ext_killed_women_cum'] ?? null,
-            'dziennikarze'  => $report['ext_press_killed_cum'] ?? null,
+            'w tym dzieci'  => $this->estimate('killed_children_cum', $date, $killed) ?? $report['ext_killed_children_cum'] ?? null,
+            'w tym kobiety' => $this->estimate('killed_women_cum', $date, $killed) ?? $report['ext_killed_women_cum'] ?? null,
+            'dziennikarze'  => $this->isStale('ext_press_killed_cum', $date) ? null : ($report['ext_press_killed_cum'] ?? null),
         ];
 
         foreach ($rows as $label => $value) {
@@ -197,5 +210,31 @@ class PalestineModule implements StoryModule
                 $body->add(new Stat($label, $this->fmt($value), valueColor: '#ffd166'));
             }
         }
+    }
+
+    /** Pole × łączna liczba zabitych według udziału z ostatniego raportu (do $date), który to pole podał. */
+    private function estimate(string $field, string $date, int $killed): ?int {
+        $share = null;
+        foreach ($this->reports as $row) {
+            if (($row['report_date'] ?? '') > $date) break;
+            $total = (int) ($row['ext_killed_cum'] ?? $row['killed_cum'] ?? 0);
+            if (!empty($row[$field]) && $total > 0) {
+                $share = $row[$field] / $total;
+            }
+        }
+        return $share !== null && $killed > 0 ? (int) floor($killed * $share) : null;
+    }
+
+    /** Czy wartość pola nie zmieniła się od ponad STALE_DAYS dni przed $date. */
+    private function isStale(string $field, string $date): bool {
+        $last = null; $since = null;
+        foreach ($this->reports as $row) {
+            if (($row['report_date'] ?? '') > $date) break;
+            if (isset($row[$field]) && $row[$field] !== $last) {
+                $last  = $row[$field];
+                $since = $row['report_date'];
+            }
+        }
+        return $since === null || strtotime($date) - strtotime($since) > self::STALE_DAYS * 86400;
     }
 }

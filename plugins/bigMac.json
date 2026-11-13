@@ -1,0 +1,18 @@
+{
+    "label": "Indeks Big Maca",
+    "sources": ["bigMac"],
+    "body": {
+        "type": "Stack",
+        "name": "Indeks Big Maca",
+        "children": [
+            { "type": "Spacer", "height": 30 },
+            { "type": "Text", "text": "Indeks Big Maca · {{bigMac.edition}}", "size": 24, "color": "#8899CC", "height": 40 },
+            { "type": "Text", "text": "{{bigMac.priceText}}", "size": 48, "font": "bold", "height": 70 },
+            { "type": "Text", "text": "{{bigMac.usdLine}}", "size": 22, "color": "#FBBF24", "height": 36 },
+            { "type": "Text", "when": "bigMac.yearLine", "text": "{{bigMac.yearLine}}", "size": 18, "color": "#8C9AB8", "height": 30 },
+            { "type": "Spacer", "height": 16 },
+            { "type": "Text", "text": "Big Mac w przeliczeniu na dolary", "size": 16, "color": "#556688", "height": 30 },
+            { "type": "BarChart", "rows": "{{bigMac.rows}}", "maxRowHeight": 44, "barHeight": 26 }
+        ]
+    }
+}

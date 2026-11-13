@@ -1,0 +1,17 @@
+{
+    "label": "Płaska Ziemia",
+    "enabled": false,
+    "sources": ["flatEarth"],
+    "size": 1,
+    "body": {
+        "type": "Stack",
+        "name": "Płaska Ziemia",
+        "when": "flatEarth",
+        "children": [
+            { "type": "Text", "text": "Jeśli spotkasz dziś płaskoziemce, powiedz mu że...", "size": 24, "color": "#FF6666", "font": "bold", "height": 40 },
+            { "type": "Text", "text": "{{flatEarth.title}}", "size": 28, "font": "bold", "height": 54 },
+            { "type": "Spacer", "height": 8 },
+            { "type": "WrappedText", "text": "{{flatEarth.text}}", "size": 22, "color": "#AAAAAA", "lineHeight": 30 }
+        ]
+    }
+}

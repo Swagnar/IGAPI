@@ -1,0 +1,47 @@
+{
+    "label": "Lód morski",
+    "sources": ["seaIce"],
+    "body": {
+        "type": "Stack",
+        "name": "Lód morski",
+        "children": [
+            { "type": "Spacer", "height": 30 },
+            { "type": "Text", "text": "Lód morski · {{seaIce.dateText}}", "size": 24, "color": "#8899CC", "height": 40 },
+            { "type": "Spacer", "height": 10 },
+            {
+                "type": "Columns",
+                "name": "Bieguny",
+                "weights": [1, 1],
+                "gap": 30,
+                "children": [
+                    {
+                        "type": "Stack",
+                        "name": "Arktyka",
+                        "children": [
+                            { "type": "Text", "text": "{{seaIce.north.name}}", "size": 20, "font": "bold", "color": "#AAB4CC", "height": 30 },
+                            { "type": "Text", "text": "{{seaIce.north.extentText}}", "size": 40, "font": "bold", "height": 56 },
+                            { "type": "Text", "text": "{{seaIce.north.diffText}}", "size": 18, "color": "{{seaIce.north.diffColor}}", "height": 28 },
+                            { "type": "Text", "when": "seaIce.north.rankText", "text": "{{seaIce.north.rankText}}", "size": 16, "color": "#8C9AB8", "height": 30 },
+                            { "type": "Spacer", "height": 8 },
+                            { "type": "ArcticGlobe", "grid": "{{seaIce.north.grid}}", "lines": "{{seaIce.north.lines}}", "markers": "{{seaIce.north.markers}}" }
+                        ]
+                    },
+                    {
+                        "type": "Stack",
+                        "name": "Antarktyda",
+                        "children": [
+                            { "type": "Text", "text": "{{seaIce.south.name}}", "size": 20, "font": "bold", "color": "#AAB4CC", "height": 30 },
+                            { "type": "Text", "text": "{{seaIce.south.extentText}}", "size": 40, "font": "bold", "height": 56 },
+                            { "type": "Text", "text": "{{seaIce.south.diffText}}", "size": 18, "color": "{{seaIce.south.diffColor}}", "height": 28 },
+                            { "type": "Text", "when": "seaIce.south.rankText", "text": "{{seaIce.south.rankText}}", "size": 16, "color": "#8C9AB8", "height": 30 },
+                            { "type": "Spacer", "height": 8 },
+                            { "type": "ArcticGlobe", "grid": "{{seaIce.south.grid}}", "lines": "{{seaIce.south.lines}}", "markers": "{{seaIce.south.markers}}", "centerLat": -78, "centerLon": 20 }
+                        ]
+                    }
+                ]
+            },
+            { "type": "Spacer", "height": 6 },
+            { "type": "Text", "text": "Biały — lód dziś · żółta przerywana — typowa granica lodu w latach 1981–2010", "size": 16, "color": "#556688", "height": 30 }
+        ]
+    }
+}

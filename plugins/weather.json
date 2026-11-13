@@ -1,0 +1,64 @@
+{
+    "label": "Pogoda w Polsce",
+    "sources": ["weather", "aurora"],
+    "body": {
+        "type": "Stack",
+        "name": "Pogoda",
+        "children": [
+            { "type": "Spacer", "height": 30 },
+            { "type": "Text", "text": "Pogoda o 12:00", "size": 24, "color": "#8899CC", "height": 40 },
+            { "type": "Text", "text": "{{weather.medianText}}", "size": 48, "font": "bold", "height": 70 },
+            {
+                "type": "Text",
+                "name": "Nastrój",
+                "text": "{{variant}}{{weather.details}}",
+                "size": 22,
+                "color": "{{weather.subColor}}",
+                "height": 36,
+                "variants": {
+                    "by": "weather.medianTemp",
+                    "ranges": [
+                        {
+                            "from": 30,
+                            "texts": ["Lampa jak chuj", "Lampa jak skurwysyn"]
+                        },
+                        {
+                            "from": 25,
+                            "texts": ["Prawie lampa", "Damy radę"]
+                        },
+                        {
+                            "from": 20,
+                            "texts": ["Idealnie", "Entropia osiągnięta", "Zostań tak na zawsze"]
+                        },
+                        {
+                            "from": 15,
+                            "texts": ["Ni to dobrze ni to źle", "Tak se bym powiedział"]
+                        },
+                        {
+                            "from": 10,
+                            "texts": ["Lekka pizgawica", "Jeszcze jakoś ujdzie", "Piździ jak w Kieleckim"]
+                        },
+                        {
+                            "from": 5,
+                            "texts": ["Większa pizgawica"]
+                        },
+                        {
+                            "texts": ["Oho, umieramy", "Sanki?"]
+                        }
+                    ]
+                }
+            },
+            { "type": "Text", "name": "Zorza", "when": "aurora.text", "text": "{{aurora.text}}", "size": 18, "color": "#6EE7B7", "height": 30 },
+            { "type": "Spacer", "height": 16 },
+            {
+                "type": "HeatMap",
+                "name": "Mapa pogody",
+                "points": "{{weather.points}}",
+                "area": "poland",
+                "palette": "{{weather.palette}}",
+                "view": [14.1, 24.2, 49.0, 54.9],
+                "glow": "{{aurora.glow}}"
+            }
+        ]
+    }
+}

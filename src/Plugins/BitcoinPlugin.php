@@ -7,11 +7,6 @@ use Swagnar\Igapi\Http\JsonClient;
 
 use Swagnar\Igapi\Helper\Console;
 
-use Swagnar\Igapi\Layout\Component;
-use Swagnar\Igapi\Layout\LineChart;
-use Swagnar\Igapi\Layout\Spacer;
-use Swagnar\Igapi\Layout\Stack;
-use Swagnar\Igapi\Layout\Text;
 
 class BitcoinPlugin extends AbstractPlugin
 {
@@ -25,6 +20,8 @@ class BitcoinPlugin extends AbstractPlugin
     }
 
     public function getLabel(): string { return 'Bitcoin'; }
+
+    public function getCredit(): string { return 'CoinGecko'; }
 
     public function fetchData(): array {
         Console::plugin("BitcoinPlugin: pobieram dane...");
@@ -45,33 +42,16 @@ class BitcoinPlugin extends AbstractPlugin
         ];
     }
 
-    protected function content(array $data): Component
+    /** Pola dla plugins/bitcoin.json: cena, zmiana 24 h z kolorem i punkty wykresu całej historii. */
+    public function present(array $data): array
     {
-        $priceStr = $data['price'] !== null ? '$' . number_format((float)$data['price'], 0, ',', ' ') : 'N/A';
-        $points   = array_map(fn($p) => ['x' => $p['ts'], 'y' => $p['price']], $data['history']);
-
-        $stack = (new Stack())
-            ->add(new Spacer(30))
-            ->add(new Text('₿  Bitcoin', size: 24, color: '#8899CC', font: FONT, height: 40))
-            ->add(new Text($priceStr, size: 48, color: '#FFFFFF', font: FONT_BOLD, height: 70));
-
-        if ($data['change'] !== null) {
-            $change = (float)$data['change'];
-            $stack->add(new Text(
-                sprintf('%s%s%% w ciągu 24h', $change >= 0 ? '+' : '', number_format($change, 1, ',', '')),
-                size: 22, color: $change >= 0 ? '#34D399' : '#F87171', font: FONT, height: 36,
-            ));
-        }
-
-        return $stack
-            ->add(new Spacer(30))
-            // Wykres dostaje resztę bounds — cała zebrana historia, od pierwszego wpisu w pliku
-            ->add(new LineChart(
-                $points,
-                formatY:   fn(float $price) => '$' . number_format($price, 0, ',', ' '),
-                formatX:   fn(int $ts) => date('d.m.Y', $ts),
-                emptyText: 'Brak danych historycznych',
-            ));
+        $change = $data['change'] ?? null;
+        return [
+            'priceText'   => $data['price'] !== null ? '$' . number_format((float) $data['price'], 0, ',', ' ') : 'N/A',
+            'changeText'  => $change === null ? null : sprintf('%s%s%% w ciągu 24h', $change >= 0 ? '+' : '', number_format((float) $change, 1, ',', '')),
+            'changeColor' => ($change ?? 0) >= 0 ? '#34D399' : '#F87171',
+            'points'      => array_map(fn($p) => ['x' => $p['ts'], 'y' => $p['price']], $data['history']),
+        ] + $data;
     }
 
     /**
@@ -81,6 +61,12 @@ class BitcoinPlugin extends AbstractPlugin
     private function appendIfNeeded(float $price): void
     {
         $file = self::BTC_FILE;
+
+        // „Pobierz teraz” w edytorze nie może dopisywać punktów do historii — wykres byłby pełen odczytów co kilka minut
+        if (defined('EDITOR')) {
+            Console::debug("BitcoinPlugin: edytor — nie dopisuję ceny do historii.");
+            return;
+        }
 
         if ($price <= 0) {
             Console::error("BitcoinPlugin: odrzucono nieprawidłową cenę ($price)");
