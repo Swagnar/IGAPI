@@ -24,13 +24,28 @@ FILES=(run.php collect-planes.php bootstrap.php stories.json token.php composer.
 ssh_remote() { ssh -o BatchMode=yes -i "$SSH_KEY" "$SSH_HOST" "$@"; }
 
 echo "==> Wysyłam kod do $SSH_HOST:~/$REMOTE_DIR"
-# src/, geo/, slides/, data/, sources/ i plugins/ podmieniamy w całości, żeby usunięte lokalnie pliki nie zostawały na serwerze
+# Najpierw całe archiwum rozpakowuje się do .deploy-new/ — zerwane połączenie nie zostawi serwera z połową kodu.
+# Dopiero potem podmiana przez mv (chwila): katalogi w całości, żeby usunięte lokalnie pliki nie zostawały na serwerze.
+# Poprzednia wersja zostaje w .deploy-prev/ (ręczny powrót: przenieść jej zawartość z powrotem).
+DIRS="src geo slides data sources plugins"
 tar -czf - "${FILES[@]}" | ssh_remote "
     set -e
     mkdir -p ~/$REMOTE_DIR
     cd ~/$REMOTE_DIR
-    rm -rf src geo slides data sources plugins
-    tar -xzf -
+    rm -rf .deploy-new
+    mkdir .deploy-new
+    tar -xzf - -C .deploy-new
+    rm -rf .deploy-prev
+    mkdir .deploy-prev
+    for d in $DIRS; do
+        if [ -e \"\$d\" ]; then mv \"\$d\" .deploy-prev/; fi
+        mv \".deploy-new/\$d\" .
+    done
+    for f in \$(ls -A .deploy-new); do
+        if [ -e \"\$f\" ]; then cp -p \"\$f\" .deploy-prev/; fi
+        mv -f \".deploy-new/\$f\" .
+    done
+    rmdir .deploy-new
 "
 
 echo "==> Instaluję zależności i przygotowuję katalogi"
@@ -65,7 +80,8 @@ tar -czf - -C web --exclude=./data . | ssh_remote "
 
 if [[ "${1:-}" == "--run" ]]; then
     echo "==> Próbne uruchomienie (DEBUG=true, bez publikacji)"
-    ssh_remote "cd ~/$REMOTE_DIR && DEBUG=true $PHP_BIN run.php"
+    # Eksport strony idzie do prawdziwego document root, żeby wynik próbnego runu był widoczny na swagnar.dev
+    ssh_remote "cd ~/$REMOTE_DIR && DEBUG=true IGAPI_WEB_DIR=$WEB_PATH $PHP_BIN run.php"
 fi
 
 # Ślad dla paska statusu edytora: kiedy i z którego commita poszedł deploy (i czy z niezacommitowanymi zmianami)

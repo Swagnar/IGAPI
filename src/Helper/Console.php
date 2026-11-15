@@ -25,9 +25,40 @@ class Console {
     public const BRIGHT_WHITE = "\033[97m";
 
 
+    /** Ostatnie linie logu bez kolorów — trafiają do maila z alertem */
+    private const LOG_LINES = 300;
+
+    /** @var list<string> */
+    private static array $log = [];
+
+    /** @var list<string> komunikaty ERROR i FATAL z tego uruchomienia */
+    private static array $problems = [];
+
     public static function write(string $tag, string $color, string $message): void
     {
         echo "{$color}[{$tag}]\033[0m {$message}\n";
+
+        if ($tag !== '') {
+            self::$log[] = date('H:i:s') . " [{$tag}] {$message}";
+            if (count(self::$log) > self::LOG_LINES) {
+                array_shift(self::$log);
+            }
+        }
+        if ($tag === 'ERROR' || $tag === 'FATAL') {
+            self::$problems[] = "[{$tag}] " . strtok($message, "\n");
+        }
+    }
+
+    /** @return list<string> komunikaty ERROR i FATAL z tego uruchomienia (pierwsza linia każdego) */
+    public static function problems(): array
+    {
+        return self::$problems;
+    }
+
+    /** @return list<string> ostatnie linie logu, bez kolorów */
+    public static function log(): array
+    {
+        return self::$log;
     }
 
     public static function boot(string $message): void

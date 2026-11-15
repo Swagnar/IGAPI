@@ -35,8 +35,7 @@ class InstagramPublisher
         Console::debug("Utworzono kontener: {$containerId}, czekam na gotowość...");
 
         if (!$this->waitUntilContainerReady($containerId)) {
-            Console::error("Rezygnuję z publikacji — kontener nie jest gotowy.");
-            return;
+            throw new RuntimeException("Kontener {$containerId} nie jest gotowy — slajd nie został opublikowany");
         }
 
         Console::debug("Kontener gotowy, próbuję publikować...");

@@ -13,6 +13,7 @@ use Swagnar\Igapi\Data\Sources;
 use Swagnar\Igapi\Template\Playlist;
 use Swagnar\Igapi\Web\WebExport;
 
+use Swagnar\Igapi\Helper\Alert;
 use Swagnar\Igapi\Helper\Console;
 
 use Swagnar\Igapi\Contracts\StoryRunner;
@@ -20,7 +21,8 @@ use Swagnar\Igapi\Contracts\StoryRunner;
 if (DEBUG) {
     define('PUBLIC_DIR', __DIR__ . '/ig-stories');
     define('PUBLIC_URL', __DIR__ . '/ig-stories');
-    define('WEB_DIR', __DIR__ . '/web');
+    // Próbny run z deploy.sh --run podaje IGAPI_WEB_DIR = document root strony, żeby eksport był widoczny na swagnar.dev
+    define('WEB_DIR', getenv('IGAPI_WEB_DIR') ?: __DIR__ . '/web');
     Console::debug("DEBUG MODE: Pamiętaj aby zmienić przed wdrożeniem na produkcję.");
 } else {
     // Katalog musi leżeć w document root domeny z PUBLIC_URL — Instagram pobiera obrazki po URL-u
@@ -29,6 +31,23 @@ if (DEBUG) {
     // Document root strony swagnar.dev — run zapisuje tam data/today.json i obrazki dla WWW
     define('WEB_DIR', $_ENV['WEB_DIR'] ?? ROOT_DIR . '/../swagnar.dev');
 }
+
+// Fatal (brak pamięci, limit czasu) omija try/catch — zapisujemy go w logu i wysyłamy alert z tego, co zdążyło się wykonać.
+// Rezerwa pamięci zwalniana na starcie handlera (plus podniesiony limit), żeby po „Allowed memory size exhausted” dało się jeszcze wysłać mail.
+$memoryReserve = str_repeat(' ', 1 << 20);
+register_shutdown_function(function () use (&$memoryReserve): void {
+    $memoryReserve = null;
+    // Zaalokowana pamięć zostaje po fatalu — na mail z alertem dokładamy limit
+    ini_set('memory_limit', (string) (memory_get_usage() + (64 << 20)));
+    $error = error_get_last();
+    if ($error !== null && in_array($error['type'], [E_ERROR, E_CORE_ERROR, E_COMPILE_ERROR, E_PARSE, E_USER_ERROR], true)) {
+        Console::fatal("Run przerwany: {$error['message']} ({$error['file']}:{$error['line']})");
+    }
+    // Lokalny run w trybie debug nie wysyła maili — chyba że ALERT_IN_DEBUG=true (np. test skrzynki)
+    if (!DEBUG || filter_var($_ENV['ALERT_IN_DEBUG'] ?? false, FILTER_VALIDATE_BOOLEAN)) {
+        Alert::sendIfProblems('run ' . date('Y-m-d H:i') . (DEBUG ? ' (debug)' : ''));
+    }
+});
 
 if(!file_exists(FONT)) throw new RuntimeException("Brak fontu: " . FONT);
 if(!file_exists(FONT_BOLD)) throw new RuntimeException("Brak fontu: " . FONT_BOLD);
@@ -67,7 +86,7 @@ $modules = Playlist::fromFile(ROOT_DIR . '/stories.json')->modules(ROOT_DIR . '/
 // 1. Story: pobiera dane tylko wylosowanych pluginów, generuje i publikuje slajdy
 Console::boot("Uruchamianie runnera");
 
-$result = ['published' => false, 'payloads' => []];
+$result = ['published' => false, 'payloads' => [], 'failed' => []];
 try {
     $result = (new StoryRunner($modules, $publisher))->run();
 } catch (\Throwable $e) {

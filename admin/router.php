@@ -44,6 +44,15 @@ set_time_limit(0);
 $method = $_SERVER['REQUEST_METHOD'];
 $path   = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
+// Edytor słucha tylko na 127.0.0.1, ale przeglądarka wpuści do niego zapytania z obcych stron:
+// Host spoza localhost = DNS rebinding, obcy Origin albo zapis bez JSON-a = formularz/fetch z innej witryny.
+if ($reason = foreignRequest($method)) {
+    http_response_code(403);
+    header('Content-Type: text/plain; charset=utf-8');
+    echo "Odrzucone: {$reason}";
+    return true;
+}
+
 if (!str_starts_with($path, '/api/')) {
     serveStatic($path);
     return true;
@@ -695,6 +704,27 @@ function slideFile(string $name): string
         throw new RuntimeException("Brak slajdu: {$name}");
     }
     return $file;
+}
+
+/** Powód odrzucenia zapytania spoza edytora albo null, gdy przyszło z jego własnej strony. */
+function foreignRequest(string $method): ?string
+{
+    $local = fn(?string $host) => $host !== null && in_array(strtolower($host), ['127.0.0.1', 'localhost', '[::1]', '::1'], true);
+
+    $host = $_SERVER['HTTP_HOST'] ?? '';
+    if (!$local(parse_url('http://' . $host, PHP_URL_HOST) ?: null)) {
+        return 'nieznany Host';
+    }
+    $origin = $_SERVER['HTTP_ORIGIN'] ?? null;
+    if ($origin !== null && !$local(parse_url($origin, PHP_URL_HOST) ?: null)) {
+        return 'obcy Origin';
+    }
+    // Zapis tylko z Content-Type: application/json — tego nie da się wysłać z formularza ani bez preflightu CORS
+    if (!in_array($method, ['GET', 'HEAD', 'OPTIONS'], true)
+        && !str_starts_with(strtolower($_SERVER['CONTENT_TYPE'] ?? ''), 'application/json')) {
+        return 'zapis wymaga Content-Type: application/json';
+    }
+    return null;
 }
 
 function requestJson(): array

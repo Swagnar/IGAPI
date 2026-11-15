@@ -67,6 +67,9 @@ cp .env.example .env
 | `DEBUG` | nie | `false` na produkcji. **Brak wpisu = tryb debug** (bez publikacji), żeby lokalny run niczego nie wrzucił |
 | `PUBLIC_DIR`, `PUBLIC_URL` | nie | Gdzie zapisywać obrazki na produkcji i pod jakim URL-em są dostępne. Domyślnie `../swagnar.dev/ig-stories` i `https://swagnar.dev/ig-stories` |
 | `WEB_DIR` | nie | Document root strony swagnar.dev — tam run zapisuje `data/today.json` i rendery. Domyślnie `../swagnar.dev` (w trybie debug: `web/`) |
+| `ALERT_EMAIL` | zalecane | Adres, na który idzie mail, gdy w runie coś się nie powiedzie (patrz „Alerty”). Bez niego alertów nie ma |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS` | nie | Skrzynka nadawcy alertów (port 465 = SSL, 587 = STARTTLS). Bez `SMTP_HOST` mail idzie przez `mail()` serwera |
+| `ALERT_IN_DEBUG` | nie | `true` — alerty także z runu w trybie debug (np. żeby sprawdzić skrzynkę) |
 
 ---
 
@@ -84,7 +87,7 @@ W trybie debug obrazki trafiają do lokalnego `ig-stories/`, a publikacja jest p
 composer admin        # albo: php -d xdebug.mode=off -S 127.0.0.1:8080 admin/router.php
 ```
 
-Otwórz http://127.0.0.1:8080. Edytor działa tylko na localhost i nie jest wysyłany na serwer.
+Otwórz http://127.0.0.1:8080. Edytor działa tylko na localhost i nie jest wysyłany na serwer. Odrzuca zapytania z obcych stron (Host spoza localhost, obcy `Origin`, zapis bez `Content-Type: application/json`), żeby strona otwarta w tej samej przeglądarce nie mogła nic w nim zmienić.
 
 - **nowy slajd** — „+ Nowy slajd” tworzy `slides/<nazwa>.json` ze szkieletem i dopisuje go do planu jako **wyłączony**
 - **plan publikacji** — kolejność (↑ ↓) i włączanie slajdów, zapis od razu do `stories.json`; lista slajdów pokazuje ● publikowany, ○ wyłączony, — poza planem
@@ -125,7 +128,7 @@ Produkcja działa na hostingu cPanel (`vh13519@v102.vh.net.pl`) w katalogu `~/IG
 ./deploy.sh --run    # to samo + próbne uruchomienie na serwerze w trybie debug
 ```
 
-`deploy.sh` nie rusza danych produkcyjnych: `.env`, `btc_data.txt`, wygenerowanych obrazków i `data/` strony (eksport porannego runu). Stronę wgrywa tam, gdzie zapisuje ją `run.php`: do `WEB_DIR` z `.env` na serwerze, a bez tego wpisu do `~/swagnar.dev`. Pliki strony są nadpisywane, nic nie jest kasowane. Ścieżki można nadpisać zmiennymi `SSH_HOST`, `SSH_KEY`, `REMOTE_DIR`, `PUBLIC_DIR`, `WEB_DIR`, `PHP_BIN`.
+`deploy.sh` nie rusza danych produkcyjnych: `.env`, `btc_data.txt`, wygenerowanych obrazków i `data/` strony (eksport porannego runu). Kod rozpakowuje się najpierw do `~/IGAPI/.deploy-new/` i dopiero w całości podmienia stary — zerwane połączenie nie zostawi serwera z połową plików. Poprzednia wersja zostaje w `~/IGAPI/.deploy-prev/`. Próbny run (`--run`) zapisuje eksport do prawdziwego document root, więc jego wynik od razu widać na swagnar.dev (do porannego runu). Stronę wgrywa tam, gdzie zapisuje ją `run.php`: do `WEB_DIR` z `.env` na serwerze, a bez tego wpisu do `~/swagnar.dev`. Pliki strony są nadpisywane, nic nie jest kasowane. Ścieżki można nadpisać zmiennymi `SSH_HOST`, `SSH_KEY`, `REMOTE_DIR`, `PUBLIC_DIR`, `WEB_DIR`, `PHP_BIN`.
 
 **Harmonogram** — zadanie CRON w cPanelu, codziennie o 06:00 (czas serwera = CET):
 
@@ -134,6 +137,8 @@ Produkcja działa na hostingu cPanel (`vh13519@v102.vh.net.pl`) w katalogu `~/IG
 ```
 
 Log z każdego uruchomienia trafia do `~/IGAPI/cron.log`.
+
+**Alerty** — gdy w produkcyjnym runie pojawi się błąd (moduł, źródło danych, publikacja, nieważny token) albo run zostanie przerwany fatalem (brak pamięci, limit czasu), na `ALERT_EMAIL` idzie mail z listą problemów i końcówką logu. Klucze z `.env` są w nim maskowane. Run w trybie debug alertów nie wysyła, chyba że `ALERT_IN_DEBUG=true`.
 
 **Strona swagnar.dev** — pliki z `web/` wgrywa `deploy.sh` do document root domeny (`WEB_DIR`, domyślnie `~/swagnar.dev`). Każdy run dopisuje tam `data/today.json` i rendery (`data/slides/*.webp`, `data/plugins/*.webp`), więc strona pokazuje dzisiejsze story i wszystkie pluginy bez osobnego zadania CRON.
 

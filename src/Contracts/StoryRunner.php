@@ -18,13 +18,15 @@ class StoryRunner
 
     /**
      * Generuje i publikuje slajdy po kolei; zwraca to, co się wygenerowało (klucze jak w $modules) —
-     * moduł z błędem nie ma wpisu. 'published' = czy slajdy poszły na Instagram.
+     * moduł z błędem nie ma wpisu. 'published' = czy wszystkie slajdy poszły na Instagram,
+     * 'failed' = moduły, których slajdów nie udało się opublikować.
      *
-     * @return array{published: bool, payloads: array<string|int, StoryPayload>}
+     * @return array{published: bool, payloads: array<string|int, StoryPayload>, failed: list<string>}
      */
     public function run(): array {
         $publish = !DEBUG;
         $payloads = [];
+        $failed   = [];
 
         if ($publish) {
             $tokenStatus = $this->publisher->checkTokenStatus();
@@ -62,13 +64,14 @@ class StoryRunner
                         sleep(10);
                     } catch (\Throwable $e) {
                         Console::error("Błąd publikowania " . $module->getLabel() . ": " . $e->getMessage());
+                        $failed[] = $module->getLabel();
                         break;
                     }
                 }
             }
         }
 
-        return ['published' => $publish, 'payloads' => $payloads];
+        return ['published' => $publish && !$failed, 'payloads' => $payloads, 'failed' => $failed];
     }
 
     /**
